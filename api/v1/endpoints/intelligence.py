@@ -17,6 +17,7 @@ from api.v1.schemas.intelligence import (
     IntelligenceSourceCreateRequest,
     IntelligenceSourceItem,
     IntelligenceSourceListResponse,
+    IntelligenceSourceUpdateRequest,
     IntelligenceSourceTemplateCreateRequest,
     IntelligenceSourceTemplateListResponse,
     IntelligenceSourceTestResponse,
@@ -48,11 +49,30 @@ def _internal_error(message: str, exc: Exception) -> HTTPException:
 @router.post("/sources", response_model=IntelligenceSourceItem, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}, summary="Create intelligence source")
 def create_source(request: IntelligenceSourceCreateRequest) -> IntelligenceSourceItem:
     try:
-        return IntelligenceSourceItem(**IntelligenceService().create_source(request.model_dump()))
+        result = IntelligenceService().create_source(request.model_dump())
+        from src.search_service import reset_search_service
+        reset_search_service()
+        return IntelligenceSourceItem(**result)
     except IntelligenceServiceError as exc:
         raise _bad_request(exc)
     except Exception as exc:
         raise _internal_error("Create intelligence source failed", exc)
+
+
+@router.patch("/sources/{source_id}", response_model=IntelligenceSourceItem, responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}, summary="Update intelligence source")
+def update_source(source_id: int, request: IntelligenceSourceUpdateRequest) -> IntelligenceSourceItem:
+    try:
+        result = IntelligenceService().update_source(source_id, request.model_dump(exclude_none=True))
+        from src.search_service import reset_search_service
+        reset_search_service()
+        return IntelligenceSourceItem(**result)
+    except IntelligenceServiceError as exc:
+        message = str(exc)
+        if "not found" in message.lower():
+            raise _not_found(message)
+        raise _bad_request(exc)
+    except Exception as exc:
+        raise _internal_error("Update intelligence source failed", exc)
 
 
 @router.get("/sources", response_model=IntelligenceSourceListResponse, responses={500: {"model": ErrorResponse}}, summary="List intelligence sources")
@@ -93,10 +113,13 @@ def create_source_from_template(
     request: IntelligenceSourceTemplateCreateRequest = IntelligenceSourceTemplateCreateRequest(),
 ) -> IntelligenceSourceItem:
     try:
-        return IntelligenceSourceItem(**IntelligenceService().create_source_from_template(
+        result = IntelligenceService().create_source_from_template(
             template_id,
             request.model_dump(exclude_none=True),
-        ))
+        )
+        from src.search_service import reset_search_service
+        reset_search_service()
+        return IntelligenceSourceItem(**result)
     except IntelligenceServiceError as exc:
         message = str(exc)
         if "template not found" in message.lower():
@@ -111,9 +134,12 @@ def create_default_sources(
     request: IntelligenceDefaultSourcesCreateRequest = IntelligenceDefaultSourcesCreateRequest(),
 ) -> IntelligenceDefaultSourceCreateResponse:
     try:
-        return IntelligenceDefaultSourceCreateResponse(**IntelligenceService().create_default_sources(
+        result = IntelligenceService().create_default_sources(
             request.model_dump(exclude_none=True),
-        ))
+        )
+        from src.search_service import reset_search_service
+        reset_search_service()
+        return IntelligenceDefaultSourceCreateResponse(**result)
     except IntelligenceServiceError as exc:
         raise _bad_request(exc)
     except Exception as exc:
@@ -144,9 +170,9 @@ def fetch_source(source_id: int, dry_run: bool = Query(False)) -> IntelligenceFe
 
 
 @router.post("/sources/fetch-enabled", response_model=IntelligenceFetchResponse, responses={500: {"model": ErrorResponse}}, summary="Fetch all enabled intelligence sources with fail-open semantics")
-def fetch_enabled_sources() -> IntelligenceFetchResponse:
+def fetch_enabled_sources(dry_run: bool = Query(False)) -> IntelligenceFetchResponse:
     try:
-        return IntelligenceFetchResponse(**IntelligenceService().fetch_enabled_sources())
+        return IntelligenceFetchResponse(**IntelligenceService().fetch_enabled_sources(dry_run=dry_run))
     except Exception as exc:
         raise _internal_error("Fetch enabled intelligence sources failed", exc)
 

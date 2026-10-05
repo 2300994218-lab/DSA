@@ -10,6 +10,7 @@ import logging
 import re
 import socket
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -26,7 +27,7 @@ from src.storage import IntelligenceSource, INTELLIGENCE_ITEM_NULL_SCOPE_VALUE
 from src.services.run_diagnostics import sanitize_diagnostic_text
 
 logger = logging.getLogger(__name__)
-_ALLOWED_SOURCE_TYPES = {"rss", "atom", "newsnow"}
+_ALLOWED_SOURCE_TYPES = {"rss", "atom", "newsnow", "akshare"}
 _ALLOWED_SCOPE_TYPES = {"symbol", "market", "sector"}
 _ALLOWED_MARKETS = {"cn", "hk", "us", "jp", "kr", "tw", "global"}
 _PRIVATE_HOSTNAMES = {"localhost", "localhost.localdomain"}
@@ -35,9 +36,90 @@ _MAX_FEED_REDIRECTS = 5
 _UPSTREAM_FETCH_FAILURE_MESSAGE = "fetch failed: upstream request failed"
 _REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
 _DISABLE_REQUEST_PROXIES = {"http": None, "https": None}
+_AKSHARE_SOURCE_PREFIX = "akshare://"
+_AKSHARE_SOURCE_FUNCTIONS = {
+    "global_cls": ("财联社电报", "stock_info_global_cls"),
+    "global_em": ("东方财富 7×24 快讯", "stock_info_global_em"),
+    "global_ths": ("同花顺 7×24 快讯", "stock_info_global_ths"),
+    "global_sina": ("新浪财经 7×24 快讯", "stock_info_global_sina"),
+    "global_futu": ("富途快讯", "stock_info_global_futu"),
+    "eastmoney_cjzc": ("东方财富财经早餐", "stock_info_cjzc_em"),
+}
 _DNS_GUARD_LOCK = threading.Lock()
 _AUTO_FETCH_MIN_INTERVAL_SECONDS = 60 * 60
 _BUILTIN_SOURCE_TEMPLATES = [
+    {
+        "template_id": "chinanews-finance-rss",
+        "name": "中国新闻网财经 RSS",
+        "source_type": "rss",
+        "url": "https://www.chinanews.com.cn/rss/finance.xml",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "中国新闻网公开财经 RSS，适合 A 股和宏观新闻上下文。",
+    },
+    {
+        "template_id": "chinanews-scroll-rss",
+        "name": "中国新闻网滚动 RSS",
+        "source_type": "rss",
+        "url": "https://www.chinanews.com.cn/rss/scroll-news.xml",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "中国新闻网公开滚动新闻 RSS，适合补充实时新闻。",
+    },
+    {
+        "template_id": "akshare-cls-telegraph",
+        "name": "财联社电报（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://global_cls",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "通过 AKShare 获取财联社电报，直接参与 AI 新闻检索。",
+    },
+    {
+        "template_id": "akshare-eastmoney-fastnews",
+        "name": "东方财富 7×24 快讯（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://global_em",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "通过 AKShare 获取东方财富全球财经快讯。",
+    },
+    {
+        "template_id": "akshare-ths-fastnews",
+        "name": "同花顺 7×24 快讯（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://global_ths",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "通过 AKShare 获取同花顺财经全球直播。",
+    },
+    {
+        "template_id": "akshare-sina-fastnews",
+        "name": "新浪财经 7×24 快讯（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://global_sina",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "免费新浪财经快讯，作为 A 股和全球新闻补充来源。",
+    },
+    {
+        "template_id": "akshare-futu-news",
+        "name": "富途快讯（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://global_futu",
+        "scope_type": "market",
+        "market": "us",
+        "description": "免费富途快讯，适合港美股新闻补充。",
+    },
+    {
+        "template_id": "akshare-eastmoney-breakfast",
+        "name": "东方财富财经早餐（AKShare）",
+        "source_type": "akshare",
+        "url": "akshare://eastmoney_cjzc",
+        "scope_type": "market",
+        "market": "cn",
+        "description": "东方财富财经早餐，适合宏观和盘前背景信息。",
+    },
     {
         "template_id": "sec-company-news",
         "name": "SEC Latest Filings",
@@ -64,6 +146,24 @@ _BUILTIN_SOURCE_TEMPLATES = [
         "scope_type": "market",
         "market": "global",
         "description": "Public market news RSS for global market context. Test before enabling.",
+    },
+    {
+        "template_id": "federal-reserve-press",
+        "name": "Federal Reserve Press Releases",
+        "source_type": "rss",
+        "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+        "scope_type": "market",
+        "market": "us",
+        "description": "Federal Reserve official press release RSS for US macro context.",
+    },
+    {
+        "template_id": "cnbc-top-news",
+        "name": "CNBC Top News",
+        "source_type": "rss",
+        "url": "https://www.cnbc.com/id/19832390/device/rss/rss.html",
+        "scope_type": "market",
+        "market": "us",
+        "description": "Public CNBC RSS feed for US market and company news. Test before enabling.",
     },
 ]
 _NEWSNOW_DEFAULT_SOURCE_DEFS = [
@@ -146,11 +246,23 @@ class IntelligenceService:
 
     def create_source(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         fields = self._normalize_source_fields(payload)
-        self._validate_url(fields["url"])
+        if fields["source_type"] != "akshare":
+            self._validate_url(fields["url"])
         try:
             return self._source_to_dict(self.repo.create_source(fields))
         except IntegrityError as exc:
             raise IntelligenceServiceError(f"intelligence source name already exists: {fields['name']}") from exc
+
+    def update_source(self, source_id: int, payload: Dict[str, Any]) -> Dict[str, Any]:
+        source = self.repo.get_source(source_id)
+        if source is None:
+            raise IntelligenceServiceError(f"Intelligence source not found: {source_id}")
+        if "enabled" in payload and payload["enabled"] is not None:
+            self.repo.update_source_enabled(source_id, bool(payload["enabled"]))
+        updated = self.repo.get_source(source_id)
+        if updated is None:
+            raise IntelligenceServiceError(f"Intelligence source not found: {source_id}")
+        return self._source_to_dict(updated)
 
     def list_sources(self, **filters: Any) -> Dict[str, Any]:
         rows, total = self.repo.list_sources(**filters)
@@ -279,7 +391,7 @@ class IntelligenceService:
             logger.warning("Intelligence source fetch failed id=%s name=%s: %s", source.id, source.name, error)
             raise
 
-    def fetch_enabled_sources(self) -> Dict[str, Any]:
+    def fetch_enabled_sources(self, *, dry_run: bool = False) -> Dict[str, Any]:
         rows, total = self.repo.list_sources(enabled=True, page=1, page_size=100)
         results = []
         page = 1
@@ -288,7 +400,7 @@ class IntelligenceService:
             for row in rows:
                 source_count += 1
                 try:
-                    results.append(self.fetch_source(row.id))
+                    results.append(self.fetch_source(row.id, dry_run=dry_run))
                 except Exception as exc:
                     results.append({"ok": False, "source_id": row.id, "error": self._sanitize_error(exc)})
             if source_count >= total:
@@ -302,6 +414,7 @@ class IntelligenceService:
             "source_count": source_count,
             "results": results,
             "saved_count": sum(int(item.get("saved_count") or 0) for item in results),
+            "dry_run": dry_run,
         }
 
     def refresh_auto_sources(self, *, force: bool = False) -> Dict[str, Any]:
@@ -372,6 +485,11 @@ class IntelligenceService:
             raise IntelligenceServiceError("source url is required")
         if source_type not in _ALLOWED_SOURCE_TYPES:
             raise IntelligenceServiceError(f"unsupported source_type: {source_type}")
+        if source_type == "akshare":
+            source_key = url.removeprefix(_AKSHARE_SOURCE_PREFIX).strip().lower()
+            if not source_key or source_key not in _AKSHARE_SOURCE_FUNCTIONS:
+                raise IntelligenceServiceError("unsupported AKShare source key")
+            url = f"{_AKSHARE_SOURCE_PREFIX}{source_key}"
         if scope_type not in _ALLOWED_SCOPE_TYPES:
             raise IntelligenceServiceError(f"unsupported scope_type: {scope_type}")
         if scope_type in {"symbol", "sector"} and not scope_value:
@@ -442,6 +560,8 @@ class IntelligenceService:
     def _fetch_feed_entries(self, fields: Dict[str, Any], *, limit: int) -> List[FeedEntry]:
         if fields["source_type"] == "newsnow":
             return self._fetch_newsnow_entries(fields, limit=limit)
+        if fields["source_type"] == "akshare":
+            return self._fetch_akshare_entries(fields, limit=limit)
 
         timeout = max(1, min(float(self.config.news_intel_fetch_timeout_sec), 30.0))
         headers = {"User-Agent": "daily-stock-analysis-intel/1.0"}
@@ -496,6 +616,72 @@ class IntelligenceService:
         finally:
             if response is not None:
                 response.close()
+
+    def _fetch_akshare_entries(self, fields: Dict[str, Any], *, limit: int) -> List[FeedEntry]:
+        source_key = fields["url"].removeprefix(_AKSHARE_SOURCE_PREFIX).strip().lower()
+        source_meta = _AKSHARE_SOURCE_FUNCTIONS.get(source_key)
+        if source_meta is None:
+            raise IntelligenceServiceError("unsupported AKShare source key")
+        timeout = max(1, min(float(self.config.news_intel_fetch_timeout_sec), 30.0))
+
+        def fetch_dataframe() -> Any:
+            try:
+                import akshare as ak
+                function = getattr(ak, source_meta[1], None)
+                if function is None:
+                    raise IntelligenceServiceError(f"AKShare function unavailable: {source_meta[1]}")
+                if source_key == "global_cls":
+                    return function(symbol="全部")
+                return function()
+            except IntelligenceServiceError:
+                raise
+            except Exception as exc:
+                raise IntelligenceServiceError(_UPSTREAM_FETCH_FAILURE_MESSAGE) from exc
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="akshare-intel")
+        future = executor.submit(fetch_dataframe)
+        try:
+            dataframe = future.result(timeout=timeout)
+        except FutureTimeoutError as exc:
+            future.cancel()
+            raise IntelligenceServiceError("AKShare request timed out") from exc
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        if dataframe is None:
+            return []
+        try:
+            rows = dataframe.to_dict(orient="records") if hasattr(dataframe, "to_dict") else list(dataframe)
+        except Exception as exc:
+            raise IntelligenceServiceError("invalid AKShare response") from exc
+        entries: List[FeedEntry] = []
+        for row in rows[: max(limit * 3, limit)]:
+            if not isinstance(row, dict):
+                continue
+            title = self._first_value(row, ("标题", "新闻标题", "title", "内容", "新闻内容"))
+            summary = self._first_value(row, ("内容", "新闻内容", "摘要", "summary", "info"))
+            raw_url = self._first_value(row, ("链接", "新闻链接", "url", "link", "详情链接"))
+            published_raw = self._first_value(row, ("发布时间", "时间", "日期", "showTime", "rtime", "date"))
+            entry = self._build_entry(
+                str(title or ""),
+                str(summary or ""),
+                str(raw_url or ""),
+                fields["name"],
+                self._parse_datetime_or_timestamp(published_raw),
+            )
+            if entry:
+                entries.append(entry)
+            if len(entries) >= limit:
+                break
+        return entries
+
+    @staticmethod
+    def _first_value(row: Dict[str, Any], keys: Any) -> Any:
+        for key in keys:
+            value = row.get(key)
+            if value is not None and str(value).strip() and str(value).strip().lower() not in {"nan", "nat"}:
+                return value
+        return ""
 
     def _fetch_newsnow_entries(self, fields: Dict[str, Any], *, limit: int) -> List[FeedEntry]:
         timeout = max(1, min(float(self.config.news_intel_fetch_timeout_sec), 30.0))

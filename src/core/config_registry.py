@@ -39,6 +39,12 @@ _CATEGORY_DEFINITIONS: List[Dict[str, Any]] = [
         "display_order": 30,
     },
     {
+        "category": "news_source",
+        "title": "News Sources",
+        "description": "Configure and test RSS, NewsNow and AKShare news sources used by AI search.",
+        "display_order": 35,
+    },
+    {
         "category": "notification",
         "title": "Notification",
         "description": "Bot, webhook, and push channel related settings.",

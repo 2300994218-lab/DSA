@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
@@ -212,39 +212,45 @@ const getVendorChunkName = (id: string): string | undefined => {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  define: {
-    __APP_PACKAGE_VERSION__: JSON.stringify(appVersion),
-    __APP_REVISION__: JSON.stringify(appRevision),
-    __APP_BUILD_TIME__: JSON.stringify(buildTime),
-  },
-  plugins: [
-    buildMetadataPlugin(),
-    tailwindcss(),
-    react({
-      babel: {
-        plugins: [['babel-plugin-react-compiler']],
-      },
-    }),
-  ],
-  server: {
-    host: '0.0.0.0',  // 允许公网访问
-    port: 5173,       // 默认端口
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  // 仓库根 .env 的 WEBUI_PORT 决定开发代理指向哪个后端端口
+  const rootEnv = loadEnv(mode, path.resolve(__dirname, '../..'), '')
+  const apiPort = rootEnv.WEBUI_PORT || process.env.WEBUI_PORT || '8000'
+
+  return {
+    define: {
+      __APP_PACKAGE_VERSION__: JSON.stringify(appVersion),
+      __APP_REVISION__: JSON.stringify(appRevision),
+      __APP_BUILD_TIME__: JSON.stringify(buildTime),
+    },
+    plugins: [
+      buildMetadataPlugin(),
+      tailwindcss(),
+      react({
+        babel: {
+          plugins: [['babel-plugin-react-compiler']],
+        },
+      }),
+    ],
+    server: {
+      host: '0.0.0.0',  // 允许公网访问
+      port: 5173,       // 默认端口
+      proxy: {
+        '/api': {
+          target: `http://127.0.0.1:${apiPort}`,
+          changeOrigin: true,
+        },
       },
     },
-  },
-  build: {
-    // 打包输出到项目根目录的 static 文件夹
-    outDir: path.resolve(__dirname, '../../static'),
-    emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: getVendorChunkName,
+    build: {
+      // 打包输出到项目根目录的 static 文件夹
+      outDir: path.resolve(__dirname, '../../static'),
+      emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: getVendorChunkName,
+        },
       },
     },
-  },
+  }
 })

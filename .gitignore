@@ -89,3 +89,6 @@ static/
 /apps/dsa-desktop/node_modules/
 /node_modules/
 docs/specs/
+/apps/dsa-web/node_modules/
+.runtime/
+.cache/

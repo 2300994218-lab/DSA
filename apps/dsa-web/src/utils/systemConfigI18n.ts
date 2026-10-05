@@ -5,6 +5,7 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
   zh: {
   base: '基础设置',
   data_source: '数据源',
+  news_source: '新闻来源',
   ai_model: 'AI 模型',
   notification: '通知渠道',
   system: '系统设置',
@@ -15,6 +16,7 @@ const categoryTitleMap: Record<UiLanguage, Record<SystemConfigCategory, string>>
   en: {
     base: 'Base settings',
     data_source: 'Data sources',
+    news_source: 'News sources',
     ai_model: 'AI models',
     notification: 'Notifications',
     system: 'System',
@@ -28,6 +30,7 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
   zh: {
   base: '管理自选股与基础运行参数。',
   data_source: '管理行情数据源与优先级策略。',
+  news_source: '管理 RSS、NewsNow、AKShare 新闻来源，并测试 AI 搜索链路。',
   ai_model: '管理模型服务、模型名称与推理参数。',
   notification: '管理机器人、Webhook 和消息推送配置。',
   system: '管理调度、日志、端口等系统级参数。',
@@ -38,6 +41,7 @@ const categoryDescriptionMap: Record<UiLanguage, Partial<Record<SystemConfigCate
   en: {
     base: 'Manage watchlists and base runtime parameters.',
     data_source: 'Manage market data sources and priority strategies.',
+    news_source: 'Manage RSS, NewsNow, and AKShare sources used by AI search.',
     ai_model: 'Manage model services, model names, and inference parameters.',
     notification: 'Manage bots, webhooks, and notification delivery.',
     system: 'Manage scheduling, logging, ports, and system parameters.',

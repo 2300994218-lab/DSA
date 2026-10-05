@@ -2990,7 +2990,7 @@ class Config:
 
     def has_search_capability_enabled(self) -> bool:
         """Whether any search provider is configured or SearXNG fallback is enabled."""
-        return bool(
+        configured_provider = bool(
             self.anspire_api_keys
             or self.bocha_api_keys
             or self.minimax_api_keys
@@ -2999,6 +2999,14 @@ class Config:
             or self.serpapi_keys
             or self.has_searxng_enabled()
         )
+        if configured_provider:
+            return True
+        try:
+            from src.repositories.intelligence_repo import IntelligenceRepository
+            _, total = IntelligenceRepository().list_sources(enabled=True, page=1, page_size=1)
+            return bool(total)
+        except Exception:
+            return False
 
     def is_agent_available(self) -> bool:
         """Check whether agent capabilities are usable.
@@ -3426,7 +3434,7 @@ class Config:
         if not self.has_search_capability_enabled():
             issues.append(ConfigIssue(
                 severity="info",
-                message="未配置搜索引擎能力 (Bocha/MiniMax/Tavily/Brave/SerpAPI/SearXNG)，新闻搜索功能将不可用",
+                message="未配置搜索引擎能力 (Bocha/MiniMax/Tavily/Brave/SerpAPI/SearXNG 或已启用的 RSS/NewsNow/AKShare 来源)，新闻搜索功能将不可用",
                 field="BOCHA_API_KEYS",
             ))
 

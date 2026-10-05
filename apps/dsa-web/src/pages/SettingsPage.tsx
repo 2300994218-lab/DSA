@@ -17,6 +17,7 @@ import {
   IntelligentImport,
   LLMChannelEditor,
   NotificationTestPanel,
+  NewsSourcesPanel,
   SettingsCategoryNav,
   SettingsAlert,
   SettingsField,
@@ -1570,6 +1571,7 @@ const SettingsPage: React.FC = () => {
                 />
               </SettingsPanelErrorBoundary>
             ) : null}
+            {activeCategory === 'news_source' ? <NewsSourcesPanel /> : null}
             {activeCategory === 'agent' ? (
               <SettingsPanelErrorBoundary
                 title={t('settings.agentBackendStatus')}
@@ -1592,7 +1594,7 @@ const SettingsPage: React.FC = () => {
                 </SettingsSectionCard>
               </SettingsPanelErrorBoundary>
             ) : null}
-            {shouldGuardActiveConfigPanel && hasActiveConfigItems ? (
+            {activeCategory === 'news_source' ? null : shouldGuardActiveConfigPanel && hasActiveConfigItems ? (
               <SettingsPanelErrorBoundary
                 title={activeConfigPanelErrorTitle}
                 resetKey={`${activeCategory}:${configVersion}`}
