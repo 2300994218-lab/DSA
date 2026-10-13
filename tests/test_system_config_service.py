@@ -43,6 +43,16 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         os.environ["ENV_FILE"] = str(self.env_path)
         Config.reset_instance()
 
+        # The saved-config database can carry a LITELLM_CONFIG pointing at the
+        # developer's own litellm yaml (with its own channels). Model
+        # validation would then reject the models these tests select. Pin the
+        # yaml source to empty: with no yaml models and no LLM_CHANNELS the
+        # runtime-selection validation is skipped entirely, which is the state
+        # these tests assume.
+        litellm_yaml_patch = patch.object(Config, "_parse_litellm_yaml", return_value=[])
+        litellm_yaml_patch.start()
+        self.addCleanup(litellm_yaml_patch.stop)
+
         self.manager = ConfigManager(env_path=self.env_path)
         self.service = SystemConfigService(manager=self.manager)
 

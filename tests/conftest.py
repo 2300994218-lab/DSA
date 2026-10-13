@@ -19,9 +19,31 @@ import httpx
 import starlette.testclient
 from anyio._backends import _asyncio
 
+import os as _os
+
+import pytest as _pytest
+
 T = TypeVar("T")
 
 _original_call_soon_threadsafe = asyncio.BaseEventLoop.call_soon_threadsafe
+
+
+@_pytest.fixture(autouse=True)
+def _isolate_process_env():
+    """Snapshot and restore ``os.environ`` around every test.
+
+    Several modules call ``setup_env()`` at import time, which loads the
+    developer's real ``.env`` into the process environment. Whatever one test
+    module leaves behind (or whatever the local .env contributed) then leaks
+    into later test modules that merge ``os.environ`` into their effective
+    config maps — e.g. config-validation tests suddenly seeing a configured
+    FEISHU_WEBHOOK_URL. Restoring the snapshot makes every test start from the
+    same environment regardless of execution order.
+    """
+    snapshot = dict(_os.environ)
+    yield
+    _os.environ.clear()
+    _os.environ.update(snapshot)
 
 
 async def _shutdown_default_executor_inline(
