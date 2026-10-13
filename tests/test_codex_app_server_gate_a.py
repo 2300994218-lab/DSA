@@ -540,6 +540,7 @@ def _assert_blocked_write_finishes(
         client.close()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_blocked_stdin_write_obeys_request_timeout() -> None:
     _assert_blocked_write_finishes(
         expected_code="timeout",
@@ -547,6 +548,7 @@ def test_blocked_stdin_write_obeys_request_timeout() -> None:
     )
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_blocked_stdin_write_obeys_cancel_event() -> None:
     _assert_blocked_write_finishes(
         expected_code="cancelled",
@@ -555,6 +557,7 @@ def test_blocked_stdin_write_obeys_cancel_event() -> None:
     )
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 @pytest.mark.parametrize(
     ("expected_code", "request_timeout", "should_cancel"),
     [
@@ -575,6 +578,7 @@ def test_writer_lock_wait_obeys_request_boundary(
     )
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_large_request_is_fully_written_across_pipe_capacity(tmp_path: Path) -> None:
     payload = "x" * (2 * 1024 * 1024)
     with _transport(tmp_path, "history", timeout=5) as client:
@@ -583,6 +587,7 @@ def test_large_request_is_fully_written_across_pipe_capacity(tmp_path: Path) -> 
     assert result == {"size": len(payload)}
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_tool_result_write_timeout_is_published_before_cleanup(monkeypatch) -> None:
     client, process = _blocked_stdin_transport(request_timeout=5)
     client._thread_tools["thread-1"] = {"probe"}
@@ -617,6 +622,7 @@ def test_tool_result_write_timeout_is_published_before_cleanup(monkeypatch) -> N
         client.close()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_parallel_dynamic_tool_requests_roundtrip_and_transport_limits(tmp_path: Path) -> None:
     timing: list[tuple[str, float, float]] = []
     client = CodexAppServerTransport(
@@ -658,6 +664,7 @@ def test_parallel_dynamic_tool_requests_roundtrip_and_transport_limits(tmp_path:
     assert not safe_cwd.exists()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_transport_cancel_reaps_blocking_tool_before_close_returns(tmp_path: Path) -> None:
     marker = tmp_path / "transport-blocking.marker"
     cancel_event = threading.Event()
@@ -718,6 +725,7 @@ def test_transport_cancel_reaps_blocking_tool_before_close_returns(tmp_path: Pat
     assert not {name for name in remaining_threads if name.startswith("codex-")}
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_history_injection_preserves_user_and_assistant_roles(tmp_path: Path) -> None:
     with _transport(tmp_path, "history") as client:
         thread_id = client.start_thread(tool_names=[], base_instructions="DSA", developer_instructions="roles")
@@ -733,6 +741,7 @@ def test_history_injection_preserves_user_and_assistant_roles(tmp_path: Path) ->
     assert result.final_text == "HISTORY_OK"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 @pytest.mark.parametrize(
     ("mode", "expected_text"),
     [
@@ -759,6 +768,7 @@ def test_terminal_answer_uses_only_completed_item_events(
     assert result.final_text == expected_text
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_transport_overall_deadline_bounds_initialize(tmp_path: Path) -> None:
     started_at = time.monotonic()
     client = CodexAppServerTransport(
@@ -778,6 +788,7 @@ def test_transport_overall_deadline_bounds_initialize(tmp_path: Path) -> None:
     assert time.monotonic() - started_at < 1.0
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_transport_cancellation_interrupts_initialize(tmp_path: Path) -> None:
     cancel_event = threading.Event()
     timer = threading.Timer(0.1, cancel_event.set)
@@ -799,6 +810,7 @@ def test_transport_cancellation_interrupts_initialize(tmp_path: Path) -> None:
     assert exc_info.value.code == "cancelled"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_transport_reaps_process_group_after_leader_crash(tmp_path: Path) -> None:
     marker = tmp_path / "app-server-child.pid"
     command = _fake_command(tmp_path, "leader-crash") + [str(marker)]
@@ -823,6 +835,7 @@ def test_transport_reaps_process_group_after_leader_crash(tmp_path: Path) -> Non
         os.kill(child_pid, 0)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_turn_start_rejection_is_not_counted_as_started(tmp_path: Path) -> None:
     with _transport(tmp_path, "turn-start-error") as client:
         thread_id = client.start_thread(
@@ -837,6 +850,7 @@ def test_turn_start_rejection_is_not_counted_as_started(tmp_path: Path) -> None:
     assert exc_info.value.turn_started is False
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_turn_completed_unauthorized_maps_to_login_required(tmp_path: Path) -> None:
     with _transport(tmp_path, "unauthorized") as client:
         thread_id = client.start_thread(
@@ -851,6 +865,7 @@ def test_turn_completed_unauthorized_maps_to_login_required(tmp_path: Path) -> N
     assert exc_info.value.turn_started is True
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_command_probe_uses_fixed_argv_and_gate_a_permission_profile(tmp_path: Path) -> None:
     with _transport(tmp_path, "command") as client:
         assert client.safe_cwd is not None
@@ -866,6 +881,7 @@ def test_command_probe_uses_fixed_argv_and_gate_a_permission_profile(tmp_path: P
     }
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_wrong_active_permission_profile_fails_closed(tmp_path: Path) -> None:
     with _transport(tmp_path, "wrong-profile") as client:
         with pytest.raises(GateAError) as exc_info:
@@ -874,6 +890,7 @@ def test_wrong_active_permission_profile_fails_closed(tmp_path: Path) -> None:
     assert exc_info.value.code == "permission_profile_mismatch"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_exposed_mcp_capability_fails_allowlist_check(tmp_path: Path) -> None:
     with _transport(tmp_path, "mcp-exposed") as client:
         thread_id = client.start_thread(tool_names=[], base_instructions="DSA", developer_instructions="mcp")
@@ -883,6 +900,7 @@ def test_exposed_mcp_capability_fails_allowlist_check(tmp_path: Path) -> None:
     assert isolation["visible_mcp_capability_count"] == 1
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_command_configuration_defines_profile_and_disables_inherited_tools(tmp_path: Path) -> None:
     command = _resolve_command(sys.executable)
     overrides = command[command.index("--stdio") + 1 :]
@@ -911,6 +929,7 @@ def test_command_configuration_defines_profile_and_disables_inherited_tools(tmp_
     assert exc_info.value.code == "unsupported_mcp_name"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 @pytest.mark.parametrize(
     ("mode", "expected_code"),
     [("unknown", "protocol_error"), ("approval", "approval_required")],
@@ -924,6 +943,7 @@ def test_unexpected_server_requests_fail_closed(tmp_path: Path, mode: str, expec
     assert exc_info.value.code == expected_code
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_oversized_stdout_frame_terminates_transport(tmp_path: Path) -> None:
     client = _transport(tmp_path, "oversized")
     with pytest.raises(GateAError) as exc_info:
@@ -935,6 +955,7 @@ def test_oversized_stdout_frame_terminates_transport(tmp_path: Path) -> None:
     assert safe_cwd is not None and not safe_cwd.exists()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_many_valid_frames_share_one_cumulative_output_budget(tmp_path: Path) -> None:
     client = _transport(tmp_path, "aggregate-output")
     with client:
@@ -949,6 +970,7 @@ def test_many_valid_frames_share_one_cumulative_output_budget(tmp_path: Path) ->
     assert exc_info.value.code == "output_too_large"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_tool_request_queue_is_bounded_by_agent_max_steps(tmp_path: Path) -> None:
     client = CodexAppServerTransport(
         _fake_command(tmp_path, "tool-flood"),
@@ -971,6 +993,7 @@ def test_tool_request_queue_is_bounded_by_agent_max_steps(tmp_path: Path) -> Non
     assert exc_info.value.code == "resource_limit_exceeded"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_tool_output_limit_is_a_terminal_turn_error(tmp_path: Path) -> None:
     client = CodexAppServerTransport(
         _fake_command(tmp_path, "blocking"),
@@ -992,6 +1015,7 @@ def test_tool_output_limit_is_a_terminal_turn_error(tmp_path: Path) -> None:
     assert exc_info.value.code == "output_too_large"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_completed_items_share_one_cumulative_turn_budget(tmp_path: Path) -> None:
     client = _transport(tmp_path, "item-flood")
     with client:
@@ -1006,6 +1030,7 @@ def test_completed_items_share_one_cumulative_turn_budget(tmp_path: Path) -> Non
     assert exc_info.value.code == "resource_limit_exceeded"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Codex App Server Agent excludes native Windows")
 def test_turn_timeout_terminates_process_group(tmp_path: Path) -> None:
     with _transport(tmp_path, "timeout", timeout=0.25) as client:
         thread_id = client.start_thread(tool_names=[], base_instructions="DSA", developer_instructions="timeout")

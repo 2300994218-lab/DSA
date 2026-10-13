@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 import sys
+import contextlib
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -1769,12 +1770,26 @@ class TestLLMUsageMigration(unittest.TestCase):
     def tearDown(self):
         DatabaseManager.reset_instance()
 
+    @contextlib.contextmanager
+    def _temp_sqlite_dir(self):
+        """Temporary directory that disposes the DatabaseManager first.
+
+        Windows keeps sqlite files locked while a connection is open, so the
+        directory can only be removed after the engine is disposed --
+        ``tearDown`` runs too late for a ``with`` block inside the test.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                yield tmpdir
+            finally:
+                DatabaseManager.reset_instance()
+
     def _create_legacy_usage_db(self, db_path: Path, telemetry_columns=()):
         extra_columns = "".join(
             f",\n                        {column} {_LLM_USAGE_TELEMETRY_COLUMN_SQL[column]}"
             for column in telemetry_columns
         )
-        with sqlite3.connect(db_path) as conn:
+        with contextlib.closing(sqlite3.connect(db_path)) as conn:
             conn.execute(
                 f"""
                 CREATE TABLE llm_usage (
@@ -1792,7 +1807,7 @@ class TestLLMUsageMigration(unittest.TestCase):
             conn.commit()
 
     def _usage_columns(self, db_path: Path):
-        with sqlite3.connect(db_path) as conn:
+        with contextlib.closing(sqlite3.connect(db_path)) as conn:
             return {
                 row[1]
                 for row in conn.execute("PRAGMA table_info(llm_usage)").fetchall()
@@ -1811,7 +1826,7 @@ class TestLLMUsageMigration(unittest.TestCase):
         )
 
     def test_existing_sqlite_table_gets_missing_columns_idempotently(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with self._temp_sqlite_dir() as tmpdir:
             db_path = Path(tmpdir) / "legacy.sqlite"
             self._create_legacy_usage_db(db_path)
 
@@ -1822,7 +1837,7 @@ class TestLLMUsageMigration(unittest.TestCase):
             self._assert_all_telemetry_columns(db_path)
 
     def test_existing_sqlite_table_gets_partial_missing_columns(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with self._temp_sqlite_dir() as tmpdir:
             db_path = Path(tmpdir) / "legacy.sqlite"
             self._create_legacy_usage_db(
                 db_path,
@@ -1839,7 +1854,7 @@ class TestLLMUsageMigration(unittest.TestCase):
             self._assert_all_telemetry_columns(db_path)
 
     def test_existing_sqlite_table_with_all_telemetry_columns_is_noop(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with self._temp_sqlite_dir() as tmpdir:
             db_path = Path(tmpdir) / "legacy.sqlite"
             self._create_legacy_usage_db(
                 db_path,
@@ -1852,7 +1867,7 @@ class TestLLMUsageMigration(unittest.TestCase):
             self._assert_all_telemetry_columns(db_path)
 
     def test_existing_sqlite_table_ignores_concurrent_duplicate_column(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with self._temp_sqlite_dir() as tmpdir:
             db_path = Path(tmpdir) / "legacy.sqlite"
             self._create_legacy_usage_db(db_path)
 
@@ -1865,7 +1880,7 @@ class TestLLMUsageMigration(unittest.TestCase):
                     and self._is_add_column_statement(statement, "provider_usage_json")
                 ):
                     race_fired["value"] = True
-                    with sqlite3.connect(db_path) as conn:
+                    with contextlib.closing(sqlite3.connect(db_path)) as conn:
                         conn.execute(
                             "ALTER TABLE llm_usage ADD COLUMN provider_usage_json TEXT"
                         )
@@ -1896,7 +1911,7 @@ class TestLLMUsageMigration(unittest.TestCase):
             self._assert_all_telemetry_columns(db_path)
 
     def test_existing_sqlite_table_retries_locked_column_backfill(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with self._temp_sqlite_dir() as tmpdir:
             db_path = Path(tmpdir) / "legacy.sqlite"
             self._create_legacy_usage_db(db_path)
 
