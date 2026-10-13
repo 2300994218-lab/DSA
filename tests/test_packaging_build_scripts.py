@@ -8,8 +8,36 @@ import shlex
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _posix_bash_available() -> bool:
+    """Whether ``bash`` can actually run a command.
+
+    A ``bash.exe`` shim can exist on Windows while no WSL distribution is
+    installed, in which case every invocation fails with
+    ``CreateProcessCommon: execvpe(/bin/bash) failed``. Probing beats
+    ``shutil.which`` here.
+    """
+    try:
+        result = subprocess.run(
+            ["bash", "-c", "true"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+requires_posix_bash = pytest.mark.skipif(
+    not _posix_bash_available(),
+    reason="需要可执行的 POSIX bash（Windows 上需已安装 WSL 发行版）",
+)
 
 
 def _read_text(path: Path) -> str:
@@ -159,6 +187,7 @@ esac
     codesign_tool.chmod(0o755)
 
 
+@requires_posix_bash
 def test_macos_signature_audit_normalizes_invalid_signatures(tmp_path: Path) -> None:
     fake_bin = tmp_path / "bin"
     _write_fake_macos_signature_tools(fake_bin)
@@ -192,6 +221,7 @@ def test_macos_signature_audit_normalizes_invalid_signatures(tmp_path: Path) -> 
     assert "removed=1" in result.stdout
 
 
+@requires_posix_bash
 def test_macos_signature_audit_rejects_invalid_signatures(tmp_path: Path) -> None:
     fake_bin = tmp_path / "bin"
     _write_fake_macos_signature_tools(fake_bin)
