@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
 - [文档] 增加 Windows 本地部署脚本与说明。
 - [新功能] V1.1.0 新增新闻来源设置页，支持 RSS、NewsNow 与 AKShare 来源的启用、单源测试和完整链路测试；启用来源统一接入 AI 问股、个股分析和市场分析。
+- [chore] 搜索服务模块按职责拆分：SearchResult/SearchResponse、HTTP 重试与正文抓取、各搜索引擎 Provider 分别独立成模块，SearchService 编排与对外导入路径 `src.search_service` 保持不变（纯结构重构，无行为变化）。
 
 ## [3.32.0] - 2026-09-06
 
