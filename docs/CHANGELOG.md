@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [文档] 增加 Windows 本地部署脚本与说明。
 - [新功能] V1.1.0 新增新闻来源设置页，支持 RSS、NewsNow 与 AKShare 来源的启用、单源测试和完整链路测试；启用来源统一接入 AI 问股、个股分析和市场分析。
 - [chore] 搜索服务模块按职责拆分：SearchResult/SearchResponse、HTTP 重试与正文抓取、各搜索引擎 Provider 分别独立成模块，SearchService 编排与对外导入路径 `src.search_service` 保持不变（纯结构重构，无行为变化）。
+- [chore] 配置字段注册表按 section 拆分：186 项字段元数据与帮助文本迁入 src/core/config_fields/ 与 config_fields_help.py，config_registry 按原顺序组装并保留公开 API（纯结构重构，字段顺序与内容经深度比对完全一致）。
 
 ## [3.32.0] - 2026-09-06
 
