@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from types import MappingProxyType
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from xml.etree import ElementTree as ET
@@ -35,7 +36,11 @@ _MAX_FEED_BYTES = 2 * 1024 * 1024
 _MAX_FEED_REDIRECTS = 5
 _UPSTREAM_FETCH_FAILURE_MESSAGE = "fetch failed: upstream request failed"
 _REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
-_DISABLE_REQUEST_PROXIES = {"http": None, "https": None}
+# Read-only shared constant: this mapping is passed by reference into every
+# outbound request. A mutable dict here was observed being polluted across
+# tests (a stray "use" key from proxy env handling), silently breaking the
+# proxy-disable contract, so freeze it at module load.
+_DISABLE_REQUEST_PROXIES = MappingProxyType({"http": None, "https": None})
 _AKSHARE_SOURCE_PREFIX = "akshare://"
 _AKSHARE_SOURCE_FUNCTIONS = {
     "global_cls": ("财联社电报", "stock_info_global_cls"),
