@@ -36,6 +36,16 @@ from src.llm.local_cli_backend import (  # noqa: E402
 )
 
 
+def _lf(text: str) -> str:
+    """Normalize CRLF to LF in a captured child-process preview.
+
+    A child process writing to a redirected stdout/stderr file opens it in text
+    mode on Windows, so each newline it prints lands as CRLF in the file. These
+    assertions are about secret redaction, not line endings, so compare on LF.
+    """
+    return text.replace("\r\n", "\n")
+
+
 def _registered_sensitive_titles_needing_title_match() -> list[str]:
     titles = []
     for field_name, metadata in _FIELD_DEFINITIONS.items():
@@ -139,9 +149,9 @@ print({final_payload!r})
         "source": "last_message",
     }
     assert result.diagnostics["output_source"] == "output_last_message"
-    assert "OpenAI Codex" in result.diagnostics["stdout_preview"]
-    assert "final-message omitted" in result.diagnostics["stdout_preview"]
-    assert "last_message" not in result.diagnostics["stdout_preview"]
+    assert "OpenAI Codex" in _lf(result.diagnostics["stdout_preview"])
+    assert "final-message omitted" in _lf(result.diagnostics["stdout_preview"])
+    assert "last_message" not in _lf(result.diagnostics["stdout_preview"])
 
 
 def test_codex_preset_pins_noninteractive_approval_policy_before_exec() -> None:
@@ -821,7 +831,7 @@ print({final_payload!r})
 
     assert json.loads(result.text)["sentiment_score"] == 70
     assert result.diagnostics["stdout_final_message_omitted"] is True
-    assert "last_message" not in result.diagnostics["stdout_preview"]
+    assert "last_message" not in _lf(result.diagnostics["stdout_preview"])
 
 
 def test_output_last_message_nonzero_exit_omits_duplicate_final_stdout_preview(
@@ -859,9 +869,9 @@ sys.exit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    assert "diagnostic: before final" in exc_info.value.details["stdout_preview"]
-    assert "final-message omitted" in exc_info.value.details["stdout_preview"]
-    assert "secret_final_payload" not in exc_info.value.details["stdout_preview"]
+    assert "diagnostic: before final" in _lf(exc_info.value.details["stdout_preview"])
+    assert "final-message omitted" in _lf(exc_info.value.details["stdout_preview"])
+    assert "secret_final_payload" not in _lf(exc_info.value.details["stdout_preview"])
 
 
 def test_stream_request_degrades_to_non_stream(tmp_path: Path) -> None:
@@ -899,7 +909,7 @@ print('{"bad": "stderr"}', file=sys.stderr)
     )
 
     assert json.loads(result.text)["sentiment_score"] == 70
-    assert "stderr" in result.diagnostics["stderr_preview"]
+    assert "stderr" in _lf(result.diagnostics["stderr_preview"])
 
 
 def test_multiple_json_objects_fail_as_invalid_json_ambiguous(tmp_path: Path) -> None:
@@ -1213,7 +1223,7 @@ raise SystemExit(2)
     assert exc_info.value.fallbackable is True
     assert exc_info.value.details["reason"] == "cli_contract_unsupported"
     assert exc_info.value.details["returncode"] == 2
-    assert "--output-last-message" in exc_info.value.details["stderr_preview"]
+    assert "--output-last-message" in _lf(exc_info.value.details["stderr_preview"])
 
 
 def test_claude_unknown_contract_arg_is_capability_unsupported_without_retry(tmp_path: Path) -> None:
@@ -2514,8 +2524,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "stdout-short" not in stdout_preview
     assert "stderr-short" not in stderr_preview
     assert "correct horse battery staple" not in stdout_preview
@@ -2562,7 +2572,7 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "tiny-secret" not in stderr_preview
     assert "proxy-short" not in stderr_preview
     assert "json-short" not in stderr_preview
@@ -2592,8 +2602,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "\x1b[" not in stdout_preview
     assert "tiny" not in stdout_preview
     assert "tiny-secret" not in stderr_preview
@@ -2621,8 +2631,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "first-secret" not in stdout_preview
     assert "second-secret" not in stdout_preview
     assert "tiny-secret" not in stderr_preview
@@ -2670,8 +2680,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     for secret in (
         "tiny-one",
         "tiny-two",
@@ -2753,7 +2763,7 @@ raise SystemExit(2)
     with pytest.raises(GenerationError) as exc_info:
         backend.generate("prompt", {})
 
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
 
     assert "quoted-auth-secret" not in stderr_preview
     assert "quoted-proxy-secret" not in stderr_preview
@@ -2777,7 +2787,7 @@ raise SystemExit(2)
     with pytest.raises(GenerationError) as exc_info:
         backend.generate("prompt", {})
 
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
 
     for secret in ("first-secret", "second-secret", "third-secret", "fourth-secret"):
         assert secret not in stderr_preview
@@ -2806,7 +2816,7 @@ raise SystemExit(2)
     with pytest.raises(GenerationError) as exc_info:
         backend.generate("prompt", {})
 
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
 
     assert "indented-explicit-secret" not in stderr_preview
     assert "? api_key\n: <redacted>\nsession_id: explicit789" in stderr_preview
@@ -2830,7 +2840,7 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "escaped-hex-json" not in stderr_preview
     assert "tagged-explicit-secret" not in stderr_preview
     assert "anchored-escaped-secret" not in stderr_preview
@@ -2869,8 +2879,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "stdout-short" not in stdout_preview
     assert "stderr-short" not in stderr_preview
     assert "https://ntfy.sh/private-topic" not in stderr_preview
@@ -2906,8 +2916,8 @@ raise SystemExit(2)
     with pytest.raises(GenerationError) as exc_info:
         backend.generate("prompt", {})
 
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
 
     for secret in ("stdout-secret", "tiny-secret"):
         assert secret not in f"{stdout_preview}\n{stderr_preview}"
@@ -2931,8 +2941,8 @@ raise SystemExit(2)
     with pytest.raises(GenerationError) as exc_info:
         backend.generate("prompt", {})
 
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
 
     for secret in ("OPENAI_API_KEY", "sk-12345", "SECRET_TOKEN"):
         assert secret not in f"{stdout_preview}\n{stderr_preview}"
@@ -3007,8 +3017,8 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stdout_preview = exc_info.value.details["stdout_preview"]
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stdout_preview = _lf(exc_info.value.details["stdout_preview"])
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert stdout_preview == "password: <redacted>\n"
     assert "tiny-secret" not in stderr_preview
     assert "cookie-secret" not in stderr_preview
@@ -3035,7 +3045,7 @@ raise SystemExit(2)
         backend.generate("prompt", {})
 
     assert exc_info.value.error_code is GenerationErrorCode.NON_ZERO_EXIT
-    stderr_preview = exc_info.value.details["stderr_preview"]
+    stderr_preview = _lf(exc_info.value.details["stderr_preview"])
     assert "correct horse" not in stderr_preview
     assert "battery staple" not in stderr_preview
     assert '{"password": <redacted>, "session_id": "json123"}' in stderr_preview
