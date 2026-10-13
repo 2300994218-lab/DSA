@@ -1704,7 +1704,11 @@ def redact_diagnostic_text(text: str, *, home: Optional[str] = None, limit: int 
     for troubleshooting.
     """
 
-    redacted = _ANSI_ESCAPE_PATTERN.sub("", text or "")
+    # Normalize CRLF/CR first so the preview budget is platform-independent:
+    # Windows child processes emit CRLF, which would otherwise consume the
+    # character limit before the tail of the preview is visible.
+    normalized = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    redacted = _ANSI_ESCAPE_PATTERN.sub("", normalized)
     home_path = home or os.path.expanduser("~")
     if home_path:
         redacted = redacted.replace(home_path, "~")
@@ -2192,17 +2196,34 @@ class LocalCliGenerationBackend(GenerationBackend):
                             )
                         stdout_handle = stack.enter_context(stdout_path.open("wb"))
                         stderr_handle = stack.enter_context(stderr_path.open("wb"))
-                        process = subprocess.Popen(
-                            [executable, *command_argv],
-                            stdin=stdin_handle,
-                            stdout=stdout_handle,
-                            stderr=stderr_handle,
-                            cwd=cwd,
-                            env=child_env,
-                            text=True,
-                            shell=False,
-                            **_popen_session_kwargs(),
-                        )
+                        # Windows: antivirus / search indexers transiently hold
+                        # a file that was written milliseconds ago (WinError 32
+                        # sharing violation surfaces as PermissionError), which
+                        # kills the spawn of a freshly written prompt.txt.
+                        # Retry a couple of times before reporting
+                        # process_start_failed; the redirected handles stay
+                        # valid across attempts because a failed Popen never
+                        # consumed them.
+                        last_start_error = None
+                        for _spawn_attempt in range(3):
+                            try:
+                                process = subprocess.Popen(
+                                    [executable, *command_argv],
+                                    stdin=stdin_handle,
+                                    stdout=stdout_handle,
+                                    stderr=stderr_handle,
+                                    cwd=cwd,
+                                    env=child_env,
+                                    text=True,
+                                    shell=False,
+                                    **_popen_session_kwargs(),
+                                )
+                                break
+                            except PermissionError as exc:
+                                last_start_error = exc
+                                time.sleep(0.1 * (_spawn_attempt + 1))
+                        else:
+                            raise last_start_error
                         self._emit_progress(stream_progress_callback, 1)
                         deadline = time.monotonic() + timeout_seconds
                         while True:
