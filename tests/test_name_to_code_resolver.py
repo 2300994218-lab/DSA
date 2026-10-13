@@ -649,8 +649,10 @@ class TestAkShareSingleFlightConcurrency:
             if t2 is not None:
                 t2.join(timeout=10)
         assert not t1.is_alive() and not t2.is_alive()
-        # 超时退化为本地库解析；后台拉取不受等待者超时影响，仍单次完成
-        assert r1.get("value") == []
+        # 超时退化为本地库解析；后台拉取不受等待者超时影响，仍单次完成。
+        # r1（触发者）的死线与 release_fetch 存在合法竞态：若其降级检查被
+        # 调度延迟到 fetch 完成之后，拿到位结果同样正确，故允许两种结局。
+        assert r1.get("value") in ([], [Stock("600000", "浦发银行", "a")])
         assert r2.get("value") == []
         assert fake.calls == 1
         assert _wait_until(

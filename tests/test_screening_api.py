@@ -2008,8 +2008,11 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(detail["leader_stocks"][0]["code"], "000001")
         self.assertEqual(len(observed_timeouts), 5)
         self.assertTrue(all(0 < timeout <= 0.25 for timeout in observed_timeouts))
+        # Non-strict monotonic decrease: on Windows time.monotonic() has a
+        # ~15.6ms tick, so consecutive 5ms-apart probes can legitimately read
+        # equal. The invariant under test is "one shared deadline, never reset".
         self.assertTrue(all(
-            later < earlier
+            later <= earlier
             for earlier, later in zip(observed_timeouts, observed_timeouts[1:])
         ))
         fetcher_manager.assert_not_called()
