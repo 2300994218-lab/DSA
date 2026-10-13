@@ -136,7 +136,7 @@ def test_index_daily_route_uses_fixed_order_symbols_and_diagnostics() -> None:
     yfinance = _FakeFetcher("YfinanceFetcher", priority=0, daily_result=_daily_frame())
     manager = DataFetcherManager(fetchers=[yfinance, tickflow, akshare, tencent])
 
-    with patch("data_provider.base.record_provider_run") as record_run:
+    with patch("data_provider.cn_index.record_provider_run") as record_run:
         df, source = manager.get_daily_data(
             "sh000016", start_date="2026-08-01", end_date="2026-08-21"
         )
@@ -182,7 +182,7 @@ def test_index_daily_route_short_circuits_after_tencent_success() -> None:
     yfinance = _FakeFetcher("YfinanceFetcher", priority=2, daily_result=_daily_frame())
     manager = DataFetcherManager(fetchers=[akshare, tickflow, yfinance, tencent])
 
-    with patch("data_provider.base.record_provider_run") as record_run:
+    with patch("data_provider.cn_index.record_provider_run") as record_run:
         df, source = manager.get_daily_data("sz399001")
 
     assert not df.empty
@@ -311,7 +311,7 @@ def test_index_daily_skips_unsupported_provider_symbols_without_health_failure()
     manager = DataFetcherManager(fetchers=cast(list[BaseFetcher], fetchers))
 
     with patch("data_provider.base.parse_analysis_target", return_value=target), patch(
-        "data_provider.base.record_provider_run"
+        "data_provider.cn_index.record_provider_run"
     ) as record_run, patch.object(
         DataFetcherManager, "_record_daily_source_failure"
     ) as record_health_failure:
@@ -391,7 +391,7 @@ def test_bare_conflict_get_stock_name_keeps_stock_name_and_warns(
     manager = _manager_without_fetchers()
 
     with patch.dict(
-        "data_provider.base.STOCK_NAME_MAP", {stock_code: stock_name}, clear=True
+        "data_provider.chip_name.STOCK_NAME_MAP", {stock_code: stock_name}, clear=True
     ), caplog.at_level(logging.WARNING):
         name = manager.get_stock_name(stock_code, allow_realtime=False)
 
@@ -449,7 +449,7 @@ def test_index_name_fallback_uses_fixed_order_and_provider_symbols() -> None:
     tickflow = _FakeFetcher("TickFlowFetcher", priority=0, name_result="网络上证50")
     manager = DataFetcherManager(fetchers=[tickflow, akshare, tencent])
 
-    with patch("data_provider.base.parse_analysis_target", return_value=target):
+    with patch("data_provider.chip_name.parse_analysis_target", return_value=target):
         name = manager.get_stock_name("sh000016", allow_realtime=False)
 
     assert name == "网络上证50"
@@ -480,11 +480,11 @@ def test_index_name_static_fallback_uses_only_canonical_key() -> None:
     manager = DataFetcherManager(fetchers=[tickflow, akshare, tencent])
 
     with patch.dict(
-        "data_provider.base.STOCK_NAME_MAP",
+        "data_provider.chip_name.STOCK_NAME_MAP",
         {"sh000016": "静态上证50", "000016": "深康佳A"},
         clear=True,
     ):
-        with patch("data_provider.base.parse_analysis_target", return_value=target):
+        with patch("data_provider.chip_name.parse_analysis_target", return_value=target):
             index_name = manager.get_stock_name("sh000016", allow_realtime=False)
         stock_name = manager.get_stock_name("000016", allow_realtime=False)
 
@@ -547,8 +547,8 @@ def test_index_name_rejects_code_aliases_from_registry_cache_network_and_static(
     manager._stock_name_cache["sh000016"] = "000016"
 
     with patch.dict(
-        "data_provider.base.STOCK_NAME_MAP", {"sh000016": "000016"}, clear=True
-    ), patch("data_provider.base.parse_analysis_target", return_value=target):
+        "data_provider.chip_name.STOCK_NAME_MAP", {"sh000016": "000016"}, clear=True
+    ), patch("data_provider.chip_name.parse_analysis_target", return_value=target):
         name = manager.get_stock_name("sh000016", allow_realtime=False)
 
     assert name == "sh000016"
@@ -580,7 +580,7 @@ def test_index_name_returns_canonical_id_when_registry_and_network_fail() -> Non
     ]
     manager = DataFetcherManager(fetchers=cast(list[BaseFetcher], fetchers))
 
-    with patch("data_provider.base.parse_analysis_target", return_value=target):
+    with patch("data_provider.chip_name.parse_analysis_target", return_value=target):
         name = manager.get_stock_name("sz399001", allow_realtime=False)
 
     assert name == "sz399001"
@@ -591,7 +591,7 @@ def test_index_and_same_bare_stock_names_use_isolated_cache_keys() -> None:
     manager = _manager_without_fetchers()
 
     with patch.dict(
-        "data_provider.base.STOCK_NAME_MAP", {"000016": "深康佳A"}, clear=True
+        "data_provider.chip_name.STOCK_NAME_MAP", {"000016": "深康佳A"}, clear=True
     ):
         stock_name = manager.get_stock_name("000016", allow_realtime=False)
         index_name = manager.get_stock_name("sh000016", allow_realtime=False)
@@ -635,7 +635,7 @@ def test_csi_daily_route_skips_unsupported_providers_without_health_failure() ->
     yfinance = _FakeFetcher("YfinanceFetcher", priority=3, daily_result=_daily_frame())
     manager = DataFetcherManager(fetchers=[tencent, akshare, tickflow, yfinance])
 
-    with patch("data_provider.base.record_provider_run") as record_run, patch.object(
+    with patch("data_provider.cn_index.record_provider_run") as record_run, patch.object(
         DataFetcherManager, "_record_daily_source_failure"
     ) as record_health_failure:
         df, source = manager.get_daily_data("csi930955")
@@ -666,7 +666,7 @@ def test_csi_daily_route_returns_empty_when_akshare_fails() -> None:
     yfinance = _FakeFetcher("YfinanceFetcher", priority=3, daily_result=_daily_frame())
     manager = DataFetcherManager(fetchers=[tencent, akshare, tickflow, yfinance])
 
-    with patch("data_provider.base.record_provider_run") as record_run:
+    with patch("data_provider.cn_index.record_provider_run") as record_run:
         df, source = manager.get_daily_data("csi930955")
 
     assert df.empty
