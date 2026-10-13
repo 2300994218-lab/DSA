@@ -5,6 +5,7 @@ Regression tests for Tavily news-mode date mapping (Issue #782).
 
 import sys
 import unittest
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from types import ModuleType
 from unittest.mock import MagicMock, patch
@@ -50,7 +51,17 @@ class TestTavilySearchProvider(unittest.TestCase):
     def _patch_tavily(self, payload):
         _FakeTavilyClient.reset()
         _FakeTavilyClient.response_payload = payload
-        return patch.dict(sys.modules, {"tavily": _fake_tavily_module()})
+        stack = ExitStack()
+        stack.enter_context(patch.dict(sys.modules, {"tavily": _fake_tavily_module()}))
+        # A developer database can have enabled intelligence sources, which
+        # adds an IntelligenceSearchProvider to the ranking round; its live
+        # results then win dimensions before Tavily is called and skew the
+        # call-count assertions. Pin the provider set to Tavily-only.
+        stack.enter_context(patch(
+            "src.search_service.IntelligenceSearchProvider.has_enabled_sources",
+            return_value=False,
+        ))
+        return stack
 
     def test_provider_uses_news_topic_when_explicitly_requested(self) -> None:
         published_text = "2026-03-20T09:30:00Z"

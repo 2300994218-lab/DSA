@@ -442,7 +442,14 @@ class TestSearXNGSearchProvider(unittest.TestCase):
         self.assertTrue(any(provider.name == "SearXNG" for provider in service._providers))
 
     def test_search_service_does_not_add_public_searxng_provider_by_default(self):
-        service = SearchService()
+        # has_enabled_sources() reads the developer's database; with enabled
+        # intelligence sources the service gains a provider and is_available
+        # turns True even with no search keys configured.
+        with patch(
+            "src.search_service.IntelligenceSearchProvider.has_enabled_sources",
+            return_value=False,
+        ):
+            service = SearchService()
 
         self.assertFalse(service.is_available)
         self.assertFalse(any(provider.name == "SearXNG" for provider in service._providers))

@@ -70,7 +70,12 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
             return_value=response
             or _response([_result("default", datetime.now().date().isoformat())])
         )
-        service._providers[0].search = mock_search
+        # Mock *every* provider, not just the first one: a developer machine
+        # with enabled intelligence sources in its database also gets an
+        # IntelligenceSearchProvider, whose live results would otherwise win
+        # the best-response ranking and break these assertions.
+        for provider in service._providers:
+            provider.search = mock_search
         return service, mock_search
 
     def test_effective_window_uses_profile_and_news_max_age(self) -> None:
@@ -1883,7 +1888,17 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
                     }
                 }
 
-                with patch("src.search_providers.brave.requests.get", return_value=fake_response) as mock_get:
+                # has_enabled_sources reads the *developer's* database: with
+                # enabled intelligence sources an extra provider joins the
+                # ranking round and its calls (through the same shared
+                # requests module object) clobber mock_get.call_args.
+                with patch(
+                    "src.search_service.IntelligenceSearchProvider.has_enabled_sources",
+                    return_value=False,
+                ), patch(
+                    "src.search_providers.brave.requests.get",
+                    return_value=fake_response,
+                ) as mock_get:
                     service = SearchService(
                         brave_keys=["dummy_key"],
                         searxng_public_instances_enabled=False,

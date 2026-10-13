@@ -3,6 +3,8 @@
 
 import sys
 import multiprocessing
+import os
+import tempfile
 import threading
 import time
 import unittest
@@ -398,17 +400,29 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
         self.assertEqual(active_search_children, [])
 
     def test_bounded_topic_search_process_returns_serialized_dsa_response(self):
-        response = _call_topic_news_in_subprocess(
-            constructor_kwargs={
-                "searxng_public_instances_enabled": False,
-                "news_max_age_days": 3,
-                "news_strategy_profile": "short",
-            },
-            topic="影视传媒",
-            max_results=2,
-            focus_keywords=None,
-            timeout_seconds=5.0,
-        )
+        # The child process must come up with NO usable provider so the 5s
+        # deadline measures the empty-path return, not a live search. Point
+        # DATABASE_PATH (inherited via env) at a fresh empty database so the
+        # IntelligenceSearchProvider finds no enabled sources even on a
+        # developer machine that has them configured.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"DATABASE_PATH": os.path.join(tmpdir, "empty.db")}):
+                response = _call_topic_news_in_subprocess(
+                    constructor_kwargs={
+                        "searxng_public_instances_enabled": False,
+                        "news_max_age_days": 3,
+                        "news_strategy_profile": "short",
+                    },
+                    topic="影视传媒",
+                    max_results=2,
+                    focus_keywords=None,
+                    # Verifies the *serialized empty response*, not the deadline
+                    # itself. Windows spawn + heavy imports can take >5s before
+                    # the worker even runs (measured 6.7s locally), so keep the
+                    # cap generous; the deadline behaviour is covered by the
+                    # bounded/capacity tests above.
+                    timeout_seconds=30.0,
+                )
 
         self.assertFalse(response.success)
         self.assertEqual(response.provider, "None")
