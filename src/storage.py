@@ -3716,9 +3716,16 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         获取 Agent 对话历史
         """
         with self.session_scope() as session:
+            # `id` is the tie-breaker: messages written in the same transaction
+            # share one `created_at`, and sorting on it alone made the
+            # DESC + reversed() round-trip unstable (it could hand the model a
+            # history with the assistant turn before the user turn).
             stmt = select(ConversationMessage).filter(
                 ConversationMessage.session_id == session_id
-            ).order_by(ConversationMessage.created_at.desc()).limit(limit)
+            ).order_by(
+                ConversationMessage.created_at.desc(),
+                ConversationMessage.id.desc(),
+            ).limit(limit)
             messages = session.execute(stmt).scalars().all()
 
             # 倒序返回，保证时间顺序
