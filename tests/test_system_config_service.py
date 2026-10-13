@@ -194,7 +194,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             "LLM_HERMES_API_KEY=sk-hermes-secret-value",
         )
 
-        with patch("src.services.system_config_service.requests.Session") as session_cls:
+        with patch("src.services.system_config.llm.requests.Session") as session_cls:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -218,7 +218,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {"LLM_HERMES_BASE_URL": "http://127.0.0.1:9999/v1"}, clear=False), \
-             patch("src.services.system_config_service.requests.Session") as session_cls:
+             patch("src.services.system_config.llm.requests.Session") as session_cls:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -253,8 +253,8 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             def close(self) -> None:
                 observed["closed"] = True
 
-        with patch("src.services.system_config_service.requests.Session", side_effect=FakeSession), \
-             patch("src.services.system_config_service.requests.get") as requests_get:
+        with patch("src.services.system_config.llm.requests.Session", side_effect=FakeSession), \
+             patch("src.services.system_config.llm.requests.get") as requests_get:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -271,7 +271,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         requests_get.assert_not_called()
 
     def test_hermes_model_discovery_invalid_url_fails_before_request(self) -> None:
-        with patch("src.services.system_config_service.requests.Session") as session_cls:
+        with patch("src.services.system_config.llm.requests.Session") as session_cls:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -303,7 +303,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             def close(self) -> None:
                 pass
 
-        with patch("src.services.system_config_service.requests.Session", side_effect=FakeSession):
+        with patch("src.services.system_config.llm.requests.Session", side_effect=FakeSession):
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -415,7 +415,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             def close(self) -> None:
                 pass
 
-        with patch("src.services.system_config_service.requests.Session", side_effect=FakeSession), \
+        with patch("src.services.system_config.llm.requests.Session", side_effect=FakeSession), \
              self.assertLogs("src.services.system_config_service", level="WARNING") as logs:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
@@ -463,7 +463,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertIn("[REDACTED]", log_text)
 
     def test_hermes_channel_test_invalid_url_fails_before_completion(self) -> None:
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client") as no_proxy_client, \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client") as no_proxy_client, \
              patch("litellm.completion") as completion:
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -484,7 +484,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         completion.assert_not_called()
 
     def test_hermes_runtime_only_masked_key_is_not_sent_for_channel_test(self) -> None:
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client") as no_proxy_client, \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client") as no_proxy_client, \
              patch("litellm.completion") as completion:
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -504,7 +504,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         completion.assert_not_called()
 
     def test_hermes_masked_key_is_not_sent_for_model_discovery(self) -> None:
-        with patch("src.services.system_config_service.requests.Session") as session_cls:
+        with patch("src.services.system_config.llm.requests.Session") as session_cls:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -527,7 +527,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             "LLM_HERMES_API_KEY=******",
         )
 
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client") as no_proxy_client, \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client") as no_proxy_client, \
              patch("litellm.completion") as completion:
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -545,7 +545,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
     def test_hermes_channel_test_rejects_comma_api_key_before_outbound(self) -> None:
         raw_key = "key-a,key-b"
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client") as no_proxy_client, \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client") as no_proxy_client, \
              patch("litellm.completion") as completion:
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -568,7 +568,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
     def test_hermes_model_discovery_rejects_comma_api_key_before_outbound(self) -> None:
         raw_key = "key-a,key-b"
-        with patch("src.services.system_config_service.requests.Session") as session_cls:
+        with patch("src.services.system_config.llm.requests.Session") as session_cls:
             result = self.service.discover_llm_channel_models(
                 name="hermes",
                 protocol="openai",
@@ -603,7 +603,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             self.assertNotIn("api_base", kwargs)
             return self._mock_completion_response("OK")
 
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
              patch("litellm.completion", side_effect=fake_completion):
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -631,7 +631,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         def fake_completion(**_kwargs: Any) -> Any:
             raise RuntimeError("upstream echoed saved-secret-token")
 
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
              patch("litellm.completion", side_effect=fake_completion), \
              self.assertLogs("src.services.system_config_service", level="WARNING") as logs:
             result = self.service.test_llm_channel(
@@ -660,7 +660,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
                 return self._mock_completion_response("OK")
             raise RuntimeError("json capability saw saved-secret-token")
 
-        with patch("src.services.system_config_service.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
+        with patch("src.services.system_config.llm.open_hermes_no_proxy_client", fake_no_proxy_openai_client), \
              patch("litellm.completion", side_effect=fake_completion):
             result = self.service.test_llm_channel(
                 name="hermes",
@@ -1258,7 +1258,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1278,7 +1278,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/claude"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/claude"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1298,7 +1298,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value=None):
+             patch("src.services.system_config.setup.shutil.which", return_value=None):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1317,7 +1317,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1335,7 +1335,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1359,7 +1359,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1380,7 +1380,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1411,7 +1411,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/opencode"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/opencode"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1426,7 +1426,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
 
         with patch.dict(os.environ, {}, clear=True), \
-             patch("src.services.system_config_service.shutil.which", return_value="/usr/bin/codex"):
+             patch("src.services.system_config.setup.shutil.which", return_value="/usr/bin/codex"):
             status = self.service.get_setup_status()
 
         checks = {check["key"]: check for check in status["checks"]}
@@ -1604,7 +1604,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             },
             clear=True,
         ), patch("src.services.system_config_service.Config.reset_instance") as mock_reset, \
-             patch("src.services.system_config_service.setup_env") as mock_setup_env:
+             patch("src.services.system_config.update.setup_env") as mock_setup_env:
             status = self.service.get_setup_status()
 
         self.assertTrue(status["is_complete"])
@@ -3981,7 +3981,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(payload["error_code"], "invalid_config")
         self.assertEqual(payload["details"]["reason"], "missing_api_key")
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_returns_deduped_ids(self, mock_get) -> None:
         mock_response = Mock()
         mock_response.ok = True
@@ -4016,7 +4016,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
         self.assertFalse(mock_get.call_args.kwargs["allow_redirects"])
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_classifies_error_scenarios(self, mock_get) -> None:
         auth_response = Mock(ok=False, status_code=401, text="invalid api key sk-secret-value")
         auth_response.json.return_value = {"error": {"message": "invalid api key sk-secret-value"}}
@@ -4068,7 +4068,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
                 if error_code == "auth":
                     self.assertNotIn("sk-secret-value", payload["error"])
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_rejects_redirect_responses(self, mock_get) -> None:
         mock_response = Mock()
         mock_response.ok = True

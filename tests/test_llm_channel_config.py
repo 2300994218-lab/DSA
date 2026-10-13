@@ -1616,7 +1616,7 @@ class LLMChannelConfigTestCase(unittest.TestCase):
                 self.assertTrue(SystemConfigService._is_valid_llm_base_url(value), msg=value)
                 self.assertTrue(SystemConfigService._is_safe_base_url(value), msg=value)
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_blocks_parser_differential_url(self, mock_get) -> None:
         service = SystemConfigService(manager=Mock())
 
@@ -1632,7 +1632,7 @@ class LLMChannelConfigTestCase(unittest.TestCase):
         self.assertEqual(payload["details"]["reason"], "invalid_url")
         mock_get.assert_not_called()
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_blocks_unicode_metadata_alias(self, mock_get) -> None:
         service = SystemConfigService(manager=Mock())
 
@@ -1653,7 +1653,7 @@ class LLMChannelConfigTestCase(unittest.TestCase):
                 self.assertEqual(payload["details"]["reason"], "ssrf_blocked")
                 mock_get.assert_not_called()
 
-    @patch("src.services.system_config_service.requests.get")
+    @patch("src.services.system_config.llm.requests.get")
     def test_discover_llm_channel_models_blocks_numeric_metadata_alias(self, mock_get) -> None:
         service = SystemConfigService(manager=Mock())
 
