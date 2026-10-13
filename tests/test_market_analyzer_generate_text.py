@@ -1220,7 +1220,7 @@ class TestAnalyzerGenerateText:
                 usage=None,
             )
 
-        with patch("src.analyzer.call_litellm_with_param_recovery", side_effect=_fake_call_litellm_with_param_recovery):
+        with patch("src.analyzer_dispatch.call_litellm_with_param_recovery", side_effect=_fake_call_litellm_with_param_recovery):
             text, _, _ = analyzer._call_litellm("回归用例", {"max_tokens": 128, "temperature": 0.7})
 
         assert text == "ok"
@@ -1289,7 +1289,7 @@ class TestAnalyzerGenerateText:
         import src.analyzer as analyzer_module
         from src.analyzer import GeminiAnalyzer
 
-        with patch.object(analyzer_module, "call_litellm_with_param_recovery", side_effect=_fake_recovery):
+        with patch("src.analyzer_dispatch.call_litellm_with_param_recovery", side_effect=_fake_recovery):
             GeminiAnalyzer(config=strict_cfg)._call_litellm(
                 "prompt",
                 {"max_tokens": 128, "temperature": 0.2},
@@ -1343,7 +1343,7 @@ class TestAnalyzerGenerateText:
                 usage={"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11},
             )
 
-        with patch("src.analyzer.call_litellm_with_param_recovery", side_effect=_fake_recovery):
+        with patch("src.analyzer_dispatch.call_litellm_with_param_recovery", side_effect=_fake_recovery):
             text, _, _ = analyzer._call_litellm("dynamic prompt", {"max_tokens": 128, "temperature": 0.7})
 
         assert text == "ok"
@@ -1384,7 +1384,7 @@ class TestAnalyzerGenerateText:
                 },
             )
 
-        with patch("src.analyzer.call_litellm_with_param_recovery", side_effect=_fake_recovery):
+        with patch("src.analyzer_dispatch.call_litellm_with_param_recovery", side_effect=_fake_recovery):
             _, _, usage = analyzer._call_litellm("dynamic prompt", {"max_tokens": 128, "temperature": 0.7})
 
         assert usage["prompt_tokens"] == 1200
@@ -1420,7 +1420,7 @@ class TestAnalyzerGenerateText:
                 usage=None,
             )
 
-        with patch("src.analyzer.call_litellm_with_param_recovery", side_effect=_fake_recovery):
+        with patch("src.analyzer_dispatch.call_litellm_with_param_recovery", side_effect=_fake_recovery):
             text, _, usage = analyzer._call_litellm("dynamic prompt", {"max_tokens": 128, "temperature": 0.7})
 
         assert text == "ok"
@@ -1505,8 +1505,8 @@ class TestAnalyzerGenerateText:
             seen_kwargs.update(kwargs)
             return response
 
-        with patch("src.analyzer.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
-             patch("src.analyzer.litellm.completion", side_effect=fake_completion):
+        with patch("src.analyzer_dispatch.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
+             patch("src.analyzer_dispatch.litellm.completion", side_effect=fake_completion):
             text, model, _usage = analyzer._call_litellm(
                 "prompt",
                 {"max_tokens": 128, "temperature": 0.0},
@@ -1551,8 +1551,8 @@ class TestAnalyzerGenerateText:
             yield object()
 
         caplog.set_level("WARNING", logger="src.analyzer")
-        with patch("src.analyzer.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
-             patch("src.analyzer.litellm.completion", side_effect=RuntimeError("upstream saw saved-secret-token")):
+        with patch("src.analyzer_dispatch.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
+             patch("src.analyzer_dispatch.litellm.completion", side_effect=RuntimeError("upstream saw saved-secret-token")):
             with pytest.raises(_AllModelsFailedError) as exc_info:
                 analyzer._call_litellm("prompt", {"max_tokens": 4})
 
@@ -1813,7 +1813,7 @@ class TestAnalyzerGenerateText:
         assert error.details["field"] == "LITELLM_MODEL"
         assert analyzer.is_available() is False
 
-        with patch("src.analyzer.litellm.completion") as completion:
+        with patch("src.analyzer_dispatch.litellm.completion") as completion:
             with pytest.raises(GenerationError):
                 analyzer._call_litellm("prompt", {"max_tokens": 4})
         completion.assert_not_called()
@@ -1849,7 +1849,7 @@ class TestAnalyzerGenerateText:
         assert error.details["field"] == "LITELLM_FALLBACK_MODELS"
         assert analyzer.is_available() is False
 
-        with patch("src.analyzer.litellm.completion") as completion:
+        with patch("src.analyzer_dispatch.litellm.completion") as completion:
             with pytest.raises(GenerationError):
                 analyzer._call_litellm("prompt", {"max_tokens": 4})
         completion.assert_not_called()
@@ -1883,7 +1883,7 @@ class TestAnalyzerGenerateText:
         assert error.details["code"] == "explicit_hermes_route_invalid"
         assert error.details["field"] == "LITELLM_MODEL"
 
-        with patch("src.analyzer.litellm.completion") as completion:
+        with patch("src.analyzer_dispatch.litellm.completion") as completion:
             with pytest.raises(GenerationError):
                 analyzer._call_litellm("prompt", {"max_tokens": 4})
         completion.assert_not_called()
@@ -1909,8 +1909,8 @@ class TestAnalyzerGenerateText:
             llm_blocked_hermes_routes=["openai/hermes-agent"],
         )
 
-        with patch("src.analyzer.canonicalize_hermes_model_ref", side_effect=ValueError("bad model")), \
-             patch("src.analyzer.litellm.completion") as completion:
+        with patch("src.analyzer_dispatch.canonicalize_hermes_model_ref", side_effect=ValueError("bad model")), \
+             patch("src.analyzer_dispatch.litellm.completion") as completion:
             error = analyzer.get_generation_backend_config_error()
 
         assert error is not None

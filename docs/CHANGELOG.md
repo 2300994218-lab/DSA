@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [chore] 搜索服务模块按职责拆分：SearchResult/SearchResponse、HTTP 重试与正文抓取、各搜索引擎 Provider 分别独立成模块，SearchService 编排与对外导入路径 `src.search_service` 保持不变（纯结构重构，无行为变化）。
 - [chore] 配置字段注册表按 section 拆分：186 项字段元数据与帮助文本迁入 src/core/config_fields/ 与 config_fields_help.py，config_registry 按原顺序组装并保留公开 API（纯结构重构，字段顺序与内容经深度比对完全一致）。
 - [chore] SystemConfigService（5400 行）按职责拆分为 8 个 Mixin 模块（schema/llm/validation/update/notification/setup/hermes/agent），异常类迁入 system_config_errors.py；多继承经 MRO 解析，公开入口与四个异常类导出路径不变（纯结构重构，测试 patch 目标随调用点迁移）。
+- [chore] analyzer（5100 行）拆分：LiteLLM 派发/流式消费/响应解析入 analyzer_dispatch，提示词构建与格式化入 analyzer_formatting，JSON 提取/校验/文本兜底入 analyzer_parsing，模块级共享定义（异常/数据类/趋势助手）入 analyzer_shared；GeminiAnalyzer 多继承聚合，类属性与 `from src.analyzer import ...` 表面不变（纯结构重构）。
 
 ## [3.32.0] - 2026-09-06
 
