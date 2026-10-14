@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import tempfile
@@ -1088,6 +1089,53 @@ class AlertWorkerTestCase(unittest.TestCase):
         triggers = self._triggers(status="triggered")
         self.assertEqual(len(triggers), 2)
         self.assertEqual({item["rule_id"] for item in triggers}, {first_rule["id"], second_rule["id"]})
+
+    def test_multi_rule_batch_shares_one_event_loop_and_public_entry(self) -> None:
+        """A batch of rules runs in one event loop through the public service entry."""
+        for index, target in enumerate(("600519", "000858", "300750"), start=1):
+            self._create_rule(name=f"Rule {index}", target=target)
+
+        loop_ids: list[int] = []
+        public_calls: list[str] = []
+        real_wrapper = AlertService.evaluate_rule
+
+        async def _evaluate(_rule, _monitor, **_kwargs):
+            loop_ids.append(id(asyncio.get_running_loop()))
+            return {
+                "rule_id": self.service._runtime_rule_id(_rule),
+                "record_status": "not_triggered",
+                "triggered": False,
+                "observed_value": None,
+                "threshold": None,
+                "data_source": None,
+                "data_timestamp": None,
+                "reason": "unit test",
+                "message": "unit test",
+            }
+
+        async def _public_entry(rule, monitor, **kwargs):
+            public_calls.append("evaluate_rule")
+            return await real_wrapper(self.service, rule, monitor, **kwargs)
+
+        run_calls: list[int] = []
+        real_run = asyncio.run
+
+        def _counted_run(coro):
+            run_calls.append(1)
+            return real_run(coro)
+
+        worker = AlertWorker(config_provider=lambda: self._config(), service=self.service, notifier=self._notifier())
+        with patch.object(self.service, "evaluate_rule", new=_public_entry), \
+             patch.object(self.service, "_evaluate_rule", new=_evaluate), \
+             patch("src.services.alert_worker.asyncio.run", new=_counted_run):
+            stats = worker.run_once()
+
+        self.assertEqual(stats["loaded"], 3)
+        self.assertEqual(stats["evaluated"], 3)
+        self.assertEqual(len(run_calls), 1)
+        self.assertEqual(len(loop_ids), 3)
+        self.assertEqual(len(set(loop_ids)), 1)
+        self.assertEqual(public_calls, ["evaluate_rule"] * 3)
 
     def test_non_triggered_status_history_is_not_deduplicated(self) -> None:
         self._create_rule(name="Skipped", target="600519")

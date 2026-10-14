@@ -163,6 +163,24 @@ def _warn_if_open_cors_without_auth() -> None:
         "on trusted local networks or enable admin authentication."
     )
 
+
+def _cors_allowed_origins() -> List[str]:
+    """Return the CORS allow-list: built-in localhost origins plus ``CORS_ORIGINS`` extras."""
+    from src.config import DEFAULT_CORS_ORIGINS, get_config
+
+    allowed_origins = list(DEFAULT_CORS_ORIGINS)
+    try:
+        configured_origins = list(getattr(get_config(), "cors_origins", None) or [])
+    except Exception as exc:  # noqa: BLE001 - the allow-list must stay resolvable when config loading fails.
+        logger.warning("[CORS] Failed to read CORS_ORIGINS from config, keeping default origins only: %s", exc)
+        return allowed_origins
+    for origin in configured_origins:
+        cleaned = str(origin).strip()
+        if cleaned and cleaned not in allowed_origins:
+            allowed_origins.append(cleaned)
+    return allowed_origins
+
+
 from api.v1 import api_v1_router
 from api.middlewares.auth import add_auth_middleware
 from api.middlewares.error_handler import add_error_handlers
@@ -347,17 +365,8 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
     # CORS 配置
     # ============================================================
     
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-    
-    # 从环境变量添加额外的允许来源
-    extra_origins = os.environ.get("CORS_ORIGINS", "")
-    if extra_origins:
-        allowed_origins.extend([o.strip() for o in extra_origins.split(",") if o.strip()])
+    # 内置 localhost 白名单 + 配置项 CORS_ORIGINS 追加的额外允许来源
+    allowed_origins = _cors_allowed_origins()
     
     # 允许所有来源（开发/演示用）
     allow_all_origins = os.environ.get("CORS_ALLOW_ALL", "").lower() == "true"

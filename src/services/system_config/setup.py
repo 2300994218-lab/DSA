@@ -12,6 +12,7 @@ from src.config import (
     ANSPIRE_LLM_BASE_URL_DEFAULT,
     ANSPIRE_LLM_MODEL_DEFAULT,
     Config,
+    DEFAULT_AI_MODEL,
     _get_litellm_provider,
     _uses_direct_env_provider,
     canonicalize_llm_channel_protocol,
@@ -386,7 +387,7 @@ class SystemConfigSetupMixin:
         if cls._has_any_config_value(effective_map, ("DEEPSEEK_API_KEYS", "DEEPSEEK_API_KEY")):
             return "deepseek/deepseek-chat"
         if cls._has_any_config_value(effective_map, ("OPENAI_API_KEYS", "OPENAI_API_KEY", "AIHUBMIX_KEY")):
-            model = (effective_map.get("OPENAI_MODEL") or "gpt-5.5").strip()
+            model = (effective_map.get("OPENAI_MODEL") or DEFAULT_AI_MODEL).strip()
             return model if "/" in model else f"openai/{model}"
         if (
             cls._anspire_legacy_llm_enabled(effective_map)

@@ -13,6 +13,7 @@ from src.config import (
     ANSPIRE_LLM_BASE_URL_DEFAULT,
     ANSPIRE_LLM_MODEL_DEFAULT,
     Config,
+    DEFAULT_AI_MODEL,
     _get_litellm_provider,
     _uses_direct_env_provider,
     channel_allows_empty_api_key,
@@ -822,7 +823,7 @@ class GenerationBackendStatusService:
             return "deepseek/deepseek-chat"
 
         if cls._openai_keys_from_map(effective_map):
-            model = (effective_map.get("OPENAI_MODEL") or "gpt-5.5").strip()
+            model = (effective_map.get("OPENAI_MODEL") or DEFAULT_AI_MODEL).strip()
             return model if "/" in model else f"openai/{model}"
 
         return ""

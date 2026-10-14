@@ -143,10 +143,28 @@ class AlertWorker:
         monitor = EventMonitor()
         daily_cache: Dict[Any, Any] = {}
         self._analysis_visibility_cache = {}
+        # A single event loop serves the whole batch. Evaluating each rule with
+        # its own asyncio.run() used to create/tear down one loop per rule.
+        asyncio.run(self._evaluate_and_process_rules(runtime_rules, monitor, daily_cache, stats))
+
+        return stats
+
+    async def _evaluate_and_process_rules(
+        self,
+        runtime_rules: List[RuntimeAlertRule],
+        monitor: EventMonitor,
+        daily_cache: Dict[Any, Any],
+        stats: Dict[str, int],
+    ) -> None:
+        """Evaluate every runtime rule sequentially in the current event loop.
+
+        Rules stay in loaded order and each rule is handled end-to-end (record,
+        cooldown, notify) before the next one is evaluated, exactly as before.
+        """
         for runtime_rule in runtime_rules:
             stats["evaluated"] += 1
             try:
-                result = asyncio.run(self.service._evaluate_rule(runtime_rule.rule, monitor, daily_cache=daily_cache))
+                result = await self.service.evaluate_rule(runtime_rule.rule, monitor, daily_cache=daily_cache)
             except Exception as exc:
                 result = {
                     "rule_id": self.service._runtime_rule_id(runtime_rule.rule),

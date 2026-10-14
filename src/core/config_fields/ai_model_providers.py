@@ -7,6 +7,8 @@
 
 from typing import Any, Dict
 
+from src.config import DEFAULT_AI_MODEL
+
 
 FIELDS_AI_MODEL_PROVIDERS: Dict[str, Dict[str, Any]] = {
 "GEMINI_API_KEY": {
@@ -179,7 +181,7 @@ FIELDS_AI_MODEL_PROVIDERS: Dict[str, Dict[str, Any]] = {
     "is_sensitive": False,
     "is_required": False,
     "is_editable": True,
-    "default_value": "gpt-5.5",
+    "default_value": DEFAULT_AI_MODEL,
     "options": [],
     "validation": {},
     "display_order": 60,

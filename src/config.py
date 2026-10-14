@@ -127,6 +127,17 @@ TICKFLOW_KLINE_ADJUST_VALUES = {"none", "forward", "backward", "forward_additive
 # These are compatibility examples; actual availability should be validated by Anspire console/model entitlement.
 ANSPIRE_LLM_BASE_URL_DEFAULT = "https://open-gateway.anspire.cn/v6"
 ANSPIRE_LLM_MODEL_DEFAULT = "Doubao-Seed-2.0-lite"
+# Single source for the fallback OpenAI-compatible model name. Every default
+# resolves through this constant instead of repeating the literal.
+DEFAULT_AI_MODEL = "gpt-5.5"
+# Built-in CORS allow-list base (local WebUI / dev servers). Origins configured
+# through CORS_ORIGINS are appended to this base, never replacing it.
+DEFAULT_CORS_ORIGINS: Tuple[str, ...] = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+)
 
 
 def _has_ntfy_topic_endpoint(value: Optional[str]) -> bool:
@@ -963,7 +974,7 @@ class Config:
     # OpenAI 兼容 API（备选，当 Gemini/Anthropic 不可用时使用）
     openai_api_key: Optional[str] = None
     openai_base_url: Optional[str] = None  # 如: https://api.openai.com/v1
-    openai_model: str = "gpt-5.5"  # OpenAI 兼容模型名称
+    openai_model: str = DEFAULT_AI_MODEL  # OpenAI 兼容模型名称
     openai_vision_model: Optional[str] = None  # Deprecated: use VISION_MODEL instead
     openai_temperature: float = 0.7  # OpenAI 温度参数（0.0-2.0，默认0.7）
 
@@ -1273,6 +1284,8 @@ class Config:
     webui_enabled: bool = False
     webui_host: str = "127.0.0.1"
     webui_port: int = 8000
+    # CORS_ORIGINS: 追加到内置 localhost 白名单之后的额外允许来源（逗号分隔，默认空）
+    cors_origins: List[str] = field(default_factory=list)
     
     # === 机器人配置 ===
     bot_enabled: bool = True              # 是否启用机器人功能
@@ -1515,7 +1528,7 @@ class Config:
         if using_anspire_llm_legacy:
             _openai_model_name = _anspire_llm_model_env or _openai_model_env or ANSPIRE_LLM_MODEL_DEFAULT
         else:
-            _openai_model_name = _openai_model_env or 'gpt-5.5'
+            _openai_model_name = _openai_model_env or DEFAULT_AI_MODEL
 
         # LITELLM_FALLBACK_MODELS: comma-separated list of fallback models
         _fallback_str = os.getenv('LITELLM_FALLBACK_MODELS', '')
@@ -2194,6 +2207,7 @@ class Config:
             webui_enabled=os.getenv('WEBUI_ENABLED', 'false').lower() == 'true',
             webui_host=os.getenv('WEBUI_HOST', '127.0.0.1'),
             webui_port=parse_env_int(os.getenv('WEBUI_PORT'), 8000, field_name='WEBUI_PORT', minimum=1, maximum=65535),
+            cors_origins=[o.strip() for o in os.getenv('CORS_ORIGINS', '').split(',') if o.strip()],
             # 机器人配置
             bot_enabled=os.getenv('BOT_ENABLED', 'true').lower() == 'true',
             bot_command_prefix=os.getenv('BOT_COMMAND_PREFIX', '/'),

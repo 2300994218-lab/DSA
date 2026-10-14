@@ -19,7 +19,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.config import Config, channel_allows_empty_api_key, get_config
+from src.config import Config, DEFAULT_AI_MODEL, channel_allows_empty_api_key, get_config
 from src.llm.hermes import route_has_hermes
 
 logger = logging.getLogger(__name__)
@@ -221,7 +221,7 @@ def _resolve_vision_model() -> str:
         elif cfg.anthropic_api_keys:
             model = f"anthropic/{cfg.anthropic_model or 'claude-sonnet-4-6'}"
         elif cfg.openai_api_keys:
-            model = f"openai/{cfg.openai_model or 'gpt-5.5'}"
+            model = f"openai/{cfg.openai_model or DEFAULT_AI_MODEL}"
         else:
             return ""
     return model

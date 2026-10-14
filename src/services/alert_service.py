@@ -203,6 +203,19 @@ class AlertService:
                 "target_results": [],
             }
 
+    async def evaluate_rule(
+        self,
+        rule,
+        monitor: EventMonitor,
+        daily_cache: Optional[Dict[Any, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Public entry point to evaluate one runtime alert rule.
+
+        External callers (e.g. ``AlertWorker``) await this method instead of
+        reaching into ``_evaluate_rule`` directly.
+        """
+        return await self._evaluate_rule(rule, monitor, daily_cache=daily_cache)
+
     async def _evaluate_rule(
         self,
         rule,

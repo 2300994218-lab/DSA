@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [chore] SystemConfigService（5400 行）按职责拆分为 8 个 Mixin 模块（schema/llm/validation/update/notification/setup/hermes/agent），异常类迁入 system_config_errors.py；多继承经 MRO 解析，公开入口与四个异常类导出路径不变（纯结构重构，测试 patch 目标随调用点迁移）。
 - [chore] analyzer（5100 行）拆分：LiteLLM 派发/流式消费/响应解析入 analyzer_dispatch，提示词构建与格式化入 analyzer_formatting，JSON 提取/校验/文本兜底入 analyzer_parsing，模块级共享定义（异常/数据类/趋势助手）入 analyzer_shared；GeminiAnalyzer 多继承聚合，类属性与 `from src.analyzer import ...` 表面不变（纯结构重构）。
 - [chore] data_provider/base（4800 行）拆分：fetcher 注册与健康检查入 fetcher_mgmt，A 股指数（daily/realtime/name）入 cn_index，实时行情与多源补充入 realtime，筹码/批量名称/板块入 chip_name，基本面/资金流/龙虎榜入 fundamental，指数排名/热点/涨停池入 rankings；共享汉助入 base_shared，DataFetcherManager 多继承聚合且对外路径不变（纯结构重构）。
+- [改进] 告警 worker 一整批规则复用单个事件循环顺序评估（此前每条规则各调用一次 `asyncio.run()`），并改走 AlertService 公开评估入口不再直呼私有方法；日志、落库、冷却与通知语义不变。
+- [改进] API 跨域白名单的额外来源改由 settings/config 读取 `CORS_ORIGINS`（逗号分隔，默认空），内置 localhost:5173 / 3000 四个来源保留为默认基底；同步补充 `.env.example` 注释与 `docs/deploy-webui-cloud.md` 跨域说明。
 
 ## [3.32.0] - 2026-09-06
 

@@ -341,6 +341,8 @@ ADMIN_AUTH_ENABLED=true
 
 > 如果忘了密码，可以在服务器上执行：`python -m src.auth reset_password`
 
+跨域（CORS）来源默认只放行本机开发地址：`http://localhost:5173`、`http://127.0.0.1:5173`、`http://localhost:3000`、`http://127.0.0.1:3000`。如果页面部署在其他域名或端口并需要直接调用 API，在 `.env` 中用 `CORS_ORIGINS=https://your-domain.com`（逗号分隔多个来源）追加允许来源；这些来源追加在默认白名单之后，不会替换默认白名单。`CORS_ALLOW_ALL=true` 会放开所有来源并同时关闭 Cookie 凭证，只建议临时演示使用。
+
 ---
 
 遇到其他问题？欢迎 [提交 Issue](https://github.com/ZhuLinsen/daily_stock_analysis/issues)。
