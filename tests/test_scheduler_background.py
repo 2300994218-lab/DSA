@@ -333,6 +333,119 @@ class SchedulerBackgroundTaskTestCase(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual(fake_schedule.jobs, [])
 
+    def test_scheduler_reloads_multiple_daily_jobs_when_schedule_times_change(self):
+        """多时间热刷新：provider 返回新时间列表后，每日任务按新列表重建。"""
+        fake_schedule = _FakeScheduleModule()
+        with patch.dict(sys.modules, {"schedule": fake_schedule}):
+            from src.scheduler import Scheduler
+
+            scheduler = Scheduler(
+                schedule_time="18:00",
+                schedule_times_provider=lambda: ["09:30", "15:10"],
+            )
+            scheduler.set_daily_task(lambda: None, run_immediately=False)
+            self.assertEqual([job.at_time for job in fake_schedule.jobs], ["18:00"])
+
+            scheduler._refresh_daily_schedule_if_needed()
+
+        self.assertEqual([job.at_time for job in fake_schedule.jobs], ["09:30", "15:10"])
+        self.assertEqual(scheduler.schedule_times, ["09:30", "15:10"])
+
+    def test_scheduler_schedule_times_provider_accepts_comma_string(self):
+        """provider 返回逗号字符串时按同一契约解析（与列表等价）。"""
+        fake_schedule = _FakeScheduleModule()
+        with patch.dict(sys.modules, {"schedule": fake_schedule}):
+            from src.scheduler import Scheduler
+
+            scheduler = Scheduler(
+                schedule_time="18:00",
+                schedule_times_provider=lambda: "15:10, 09:30 ,15:10",
+            )
+            scheduler.set_daily_task(lambda: None, run_immediately=False)
+
+            scheduler._refresh_daily_schedule_if_needed()
+
+        self.assertEqual([job.at_time for job in fake_schedule.jobs], ["09:30", "15:10"])
+
+    def test_scheduler_keeps_current_times_when_schedule_times_all_invalid(self):
+        """provider 全非法时回退当前时间，任务不重建。"""
+        fake_schedule = _FakeScheduleModule()
+        with patch.dict(sys.modules, {"schedule": fake_schedule}):
+            from src.scheduler import Scheduler
+
+            scheduler = Scheduler(
+                schedule_time="18:00",
+                schedule_times_provider=lambda: ["25:99", "abc"],
+            )
+            scheduler.set_daily_task(lambda: None, run_immediately=False)
+
+            scheduler._refresh_daily_schedule_if_needed()
+
+        self.assertEqual([job.at_time for job in fake_schedule.jobs], ["18:00"])
+        self.assertEqual(scheduler.schedule_times, ["18:00"])
+
+    def test_scheduler_keeps_current_times_when_schedule_times_provider_fails(self):
+        """provider 抛异常时保持当前时间（多时间路径的防御分支）。"""
+        fake_schedule = _FakeScheduleModule()
+        with patch.dict(sys.modules, {"schedule": fake_schedule}):
+            from src.scheduler import Scheduler
+
+            def provider():
+                raise RuntimeError("boom")
+
+            scheduler = Scheduler(
+                schedule_time="18:00",
+                schedule_times_provider=provider,
+            )
+            scheduler.set_daily_task(lambda: None, run_immediately=False)
+
+            scheduler._refresh_daily_schedule_if_needed()
+
+        self.assertEqual([job.at_time for job in fake_schedule.jobs], ["18:00"])
+        self.assertEqual(scheduler.schedule_times, ["18:00"])
+
+
+class NormalizeScheduleTimesTestCase(unittest.TestCase):
+    """normalize_schedule_times 纯函数契约：去重排序 / 回退 / 边界值。"""
+
+    def test_dedupes_and_sorts(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(
+            normalize_schedule_times(["15:10", "09:30", "15:10"]),
+            ["09:30", "15:10"],
+        )
+
+    def test_string_input_is_split(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(normalize_schedule_times("15:10, 09:30"), ["09:30", "15:10"])
+
+    def test_all_invalid_falls_back_to_fallback_time(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(
+            normalize_schedule_times(["25:99", "abc"], fallback_time="09:30"),
+            ["09:30"],
+        )
+
+    def test_invalid_fallback_time_uses_hardcoded_default(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(normalize_schedule_times([], fallback_time="bad"), ["18:00"])
+        self.assertEqual(normalize_schedule_times(None, fallback_time=""), ["18:00"])
+
+    def test_none_uses_fallback_time(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(normalize_schedule_times(None, fallback_time="09:30"), ["09:30"])
+
+    def test_boundary_values(self):
+        from src.scheduler import normalize_schedule_times
+
+        self.assertEqual(normalize_schedule_times(["23:59", "00:00"]), ["00:00", "23:59"])
+        self.assertEqual(normalize_schedule_times(["24:00", "9:30", "18:60"]), ["18:00"])
+
 
 if __name__ == "__main__":
     unittest.main()
