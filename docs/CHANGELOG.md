@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [chore] data_provider/base（4800 行）拆分：fetcher 注册与健康检查入 fetcher_mgmt，A 股指数（daily/realtime/name）入 cn_index，实时行情与多源补充入 realtime，筹码/批量名称/板块入 chip_name，基本面/资金流/龙虎榜入 fundamental，指数排名/热点/涨停池入 rankings；共享汉助入 base_shared，DataFetcherManager 多继承聚合且对外路径不变（纯结构重构）。
 - [改进] 告警 worker 一整批规则复用单个事件循环顺序评估（此前每条规则各调用一次 `asyncio.run()`），并改走 AlertService 公开评估入口不再直呼私有方法；日志、落库、冷却与通知语义不变。
 - [改进] API 跨域白名单的额外来源改由 settings/config 读取 `CORS_ORIGINS`（逗号分隔，默认空），内置 localhost:5173 / 3000 四个来源保留为默认基底；同步补充 `.env.example` 注释与 `docs/deploy-webui-cloud.md` 跨域说明。
+- [修复] 桌面端“检查更新”或状态同步失败时，保留已有的最新版本号与下载入口信息，不再被通用错误文案整体覆盖（与安装路径的错误态处理对齐）。
 
 ## [3.32.0] - 2026-09-06
 

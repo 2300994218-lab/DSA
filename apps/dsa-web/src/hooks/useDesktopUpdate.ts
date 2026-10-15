@@ -58,6 +58,7 @@ export function useDesktopUpdate() {
           return;
         }
         setSharedDesktopUpdateState({
+          ...(getSharedDesktopUpdateState() || {}),
           status: 'error',
           message: error instanceof Error ? error.message : t('settings.desktopUpdateErrorMessage'),
         });
@@ -102,6 +103,7 @@ export function useDesktopUpdate() {
       setSharedDesktopUpdateState(normalizeDesktopUpdateState(nextState));
     } catch (error: unknown) {
       setSharedDesktopUpdateState({
+        ...(getSharedDesktopUpdateState() || {}),
         status: 'error',
         message: error instanceof Error ? error.message : t('settings.desktopUpdateErrorMessage'),
       });
