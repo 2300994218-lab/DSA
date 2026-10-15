@@ -195,23 +195,6 @@ class Scheduler:
             )
         return True
 
-    def _refresh_daily_schedule_if_needed(self) -> None:
-        """Reload daily schedule time from the latest runtime config if needed."""
-        if self._task_callback is None or self._schedule_time_provider is None:
-            return
-
-        try:
-            latest_schedule_time = (self._schedule_time_provider() or "").strip()
-        except Exception as exc:  # pragma: no cover - defensive branch
-            logger.warning("读取最新 SCHEDULE_TIME 失败，继续沿用 %s: %s", self.schedule_time, exc)
-            return
-
-        if not latest_schedule_time or latest_schedule_time == self.schedule_time:
-            return
-
-        if self._configure_daily_task(latest_schedule_time):
-            logger.info("更新后的下次执行时间: %s", self._get_next_run_time())
-
     def _configure_daily_tasks(self, schedule_times: Union[Sequence[str], str]) -> bool:
         """(Re)register daily jobs at the requested times."""
         raw_items = (

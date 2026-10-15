@@ -519,9 +519,6 @@ class DataFetcherFundamentalMixin:
         never silently downgraded. Returns (payload, error, duration_ms,
         provider_name).
         """
-        from src.config import get_config
-
-        config = get_config()
 
         def _use_yfinance() -> Tuple[Dict[str, Any], Optional[str], int, str]:
             payload, err, ms = self._run_with_retry(

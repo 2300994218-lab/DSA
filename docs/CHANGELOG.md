@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [改进] 告警 worker 一整批规则复用单个事件循环顺序评估（此前每条规则各调用一次 `asyncio.run()`），并改走 AlertService 公开评估入口不再直呼私有方法；日志、落库、冷却与通知语义不变。
 - [改进] API 跨域白名单的额外来源改由 settings/config 读取 `CORS_ORIGINS`（逗号分隔，默认空），内置 localhost:5173 / 3000 四个来源保留为默认基底；同步补充 `.env.example` 注释与 `docs/deploy-webui-cloud.md` 跨域说明。
 - [修复] 桌面端“检查更新”或状态同步失败时，保留已有的最新版本号与下载入口信息，不再被通用错误文案整体覆盖（与安装路径的错误态处理对齐）。
+- [chore] 移除 `src/scheduler.py` 中被多时间版本整体遮蔽的旧 `_refresh_daily_schedule_if_needed` 死代码，以及 `data_provider/fundamental.py` 中未使用的 `config` 局部变量。
 
 ## [3.32.0] - 2026-09-06
 
