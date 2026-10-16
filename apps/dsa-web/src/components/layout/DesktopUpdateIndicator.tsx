@@ -8,6 +8,7 @@ import { useDesktopUpdate } from '../../hooks/useDesktopUpdate';
 import { cn } from '../../utils/cn';
 import { Button } from '../common/Button';
 import { StatusDot } from '../common/StatusDot';
+import { Tooltip } from '../common/Tooltip';
 
 export const DesktopUpdateIndicator: React.FC = () => {
   const { t } = useUiLanguage();
@@ -69,18 +70,18 @@ export const DesktopUpdateIndicator: React.FC = () => {
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        className={cn(
-          'relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-card/85 text-secondary-text shadow-soft-card backdrop-blur-md transition-colors hover:bg-hover hover:text-foreground',
-          open ? 'border-border text-foreground' : '',
-        )}
-        aria-label={t('layout.desktopUpdateEntry')}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        title={tooltip}
-        onClick={() => setOpen((current) => !current)}
-      >
+      <Tooltip content={tooltip}>
+        <button
+          type="button"
+          className={cn(
+            'relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/70 bg-card/85 text-secondary-text shadow-soft-card backdrop-blur-md transition-colors hover:bg-hover hover:text-foreground',
+            open ? 'border-border text-foreground' : '',
+          )}
+          aria-label={t('layout.desktopUpdateEntry')}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen((current) => !current)}
+        >
         {busy ? (
           <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
@@ -96,6 +97,7 @@ export const DesktopUpdateIndicator: React.FC = () => {
           />
         ) : null}
       </button>
+      </Tooltip>
 
       {open ? (
         <div

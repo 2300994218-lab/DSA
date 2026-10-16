@@ -155,7 +155,9 @@ describe('DesktopUpdateIndicator', () => {
     renderIndicator();
 
     const entry = await screen.findByRole('button', { name: '桌面端更新' });
-    expect(entry).toHaveAttribute('title', expect.stringContaining('42%'));
+    // 入口提示走设计系统 Tooltip（治理守卫禁止交互元素上的原生 title），悬停后经 portal 渲染。
+    fireEvent.mouseOver(entry);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('42%');
     expect(desktopCheckForUpdates).not.toHaveBeenCalled();
   });
 });

@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [chore] 移除 `src/scheduler.py` 中被多时间版本整体遮蔽的旧 `_refresh_daily_schedule_if_needed` 死代码，以及 `data_provider/fundamental.py` 中未使用的 `config` 局部变量。
 - [测试] 补充 Scheduler 多时间热刷新/非法值保持/provider 异常保持路径与 `normalize_schedule_times` 纯函数契约测试；补充前端 401 会话过期拦截器与 `parseApiError` 错误分类的直接单测。
 
+- [修复] 桌面端更新入口按钮改用设计系统 Tooltip 展示悬停提示（移除交互元素上的原生 title 属性，符合 Web UI 治理守卫），下载进度等动态提示经 portal 渲染，并同步更新对应单测断言。
+
 ## [3.32.0] - 2026-09-06
 
 ### 发布亮点
