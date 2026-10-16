@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [测试] 补充 Scheduler 多时间热刷新/非法值保持/provider 异常保持路径与 `normalize_schedule_times` 纯函数契约测试；补充前端 401 会话过期拦截器与 `parseApiError` 错误分类的直接单测。
 
 - [修复] 桌面端更新入口按钮改用设计系统 Tooltip 展示悬停提示（移除交互元素上的原生 title 属性，符合 Web UI 治理守卫），下载进度等动态提示经 portal 渲染，并同步更新对应单测断言。
+- [测试] 刷新三项过期前端断言：告警市场区域不再断言 JP/KR 选项存在（#1823 划定的服务边界，JP/KR 只服务大盘复盘）、TickFlow 优先级帮助文案对齐 systemConfigI18n 最新描述（#2258 起区分已登记指数的独立降级链）、决策信号时间线用例改用动态 createdAt，避免固定日期随时间推移掉出 30 天窗口。
 
 ## [3.32.0] - 2026-09-06
 

@@ -761,6 +761,9 @@ describe('DecisionSignalsPage', () => {
       triggerSource: 'api',
       action: 'buy',
       status: 'active',
+      // 刷新后的信号要能进入时间线视图，createdAt 必须落在时间线窗口内
+      // （沿用兄弟用例的动态时间，避免固定日期随时间推移掉出窗口）。
+      createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
       metadata: {
         decision_profile: 'balanced',
         profile_source: 'user_selected',
