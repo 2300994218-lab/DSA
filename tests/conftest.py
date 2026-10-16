@@ -27,23 +27,85 @@ T = TypeVar("T")
 
 _original_call_soon_threadsafe = asyncio.BaseEventLoop.call_soon_threadsafe
 
+# Environment captured *before* collection imports any test module.
+_PRISTINE_ENV: dict = {}
+# Keys injected by ``.env`` loading (``dotenv.load_dotenv``) that were absent
+# from the pristine environment, mapped to the value dotenv wrote. Real
+# ``litellm`` calls ``load_dotenv()`` at import time (litellm/__init__.py), so
+# importing any module that pulls litellm in (``api.app``, ``test_agent_executor``)
+# loads the developer's real ``.env`` into the process *during collection* —
+# before the first per-test snapshot exists — and the per-test restore alone
+# cannot see it. Wrapping the dotenv entry point itself (instead of only
+# ``src.config.setup_env``) catches every injector.
+_DOTENV_INJECTED: dict = {}
+
+
+def pytest_configure(config) -> None:
+    _PRISTINE_ENV.clear()
+    _PRISTINE_ENV.update(_os.environ)
+    _install_dotenv_recorder()
+
+
+def _record_env_delta(before: dict) -> None:
+    for key in _os.environ:
+        if key not in before and key not in _PRISTINE_ENV:
+            _DOTENV_INJECTED[key] = _os.environ[key]
+
+
+def _install_dotenv_recorder() -> None:
+    """Wrap ``load_dotenv`` so every key dotenv writes is recorded.
+
+    Both bindings must be patched: the ``dotenv`` package re-exports
+    ``load_dotenv`` from ``dotenv.main`` as a separate attribute, and callers
+    use either (``litellm`` calls ``dotenv.load_dotenv``, ``src.config`` binds
+    ``from dotenv import load_dotenv`` at import time — rebound here too).
+    """
+    import dotenv
+    import dotenv.main as _dotenv_main
+    import src.config as _config_module
+
+    original_load_dotenv = dotenv.load_dotenv
+
+    def recording_load_dotenv(*args, **kwargs):
+        before = dict(_os.environ)
+        try:
+            return original_load_dotenv(*args, **kwargs)
+        finally:
+            _record_env_delta(before)
+
+    dotenv.load_dotenv = recording_load_dotenv  # type: ignore[attr-defined]
+    _dotenv_main.load_dotenv = recording_load_dotenv  # type: ignore[attr-defined]
+    _config_module.load_dotenv = recording_load_dotenv  # type: ignore[attr-defined]
+
 
 @_pytest.fixture(autouse=True)
 def _isolate_process_env():
     """Snapshot and restore ``os.environ`` around every test.
 
-    Several modules call ``setup_env()`` at import time, which loads the
+    Several modules call ``load_dotenv()`` at import time, which loads the
     developer's real ``.env`` into the process environment. Whatever one test
     module leaves behind (or whatever the local .env contributed) then leaks
     into later test modules that merge ``os.environ`` into their effective
     config maps — e.g. config-validation tests suddenly seeing a configured
     FEISHU_WEBHOOK_URL. Restoring the snapshot makes every test start from the
     same environment regardless of execution order.
+
+    Import-time pollution needs one extra step: because it happens during
+    collection, it is already part of every per-test snapshot. Keys recorded as
+    dotenv-injected are therefore scrubbed after the snapshot restore — by key
+    identity, not by value, because a later in-test ``.env`` load may legitimately
+    rewrite the same key with a different value (the snapshot restore already
+    reverted that). Keys written directly by test modules at import time
+    (e.g. ``ENV_FILE``) are never touched — dotenv only writes keys that appear
+    inside ``.env`` files, and ``ENV_FILE`` is not one of them.
     """
     snapshot = dict(_os.environ)
     yield
     _os.environ.clear()
     _os.environ.update(snapshot)
+    for key in _DOTENV_INJECTED:
+        if key not in _PRISTINE_ENV:
+            _os.environ.pop(key, None)
 
 
 async def _shutdown_default_executor_inline(

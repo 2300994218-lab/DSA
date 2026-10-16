@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - [修复] 桌面端更新入口按钮改用设计系统 Tooltip 展示悬停提示（移除交互元素上的原生 title 属性，符合 Web UI 治理守卫），下载进度等动态提示经 portal 渲染，并同步更新对应单测断言。
 - [测试] 刷新三项过期前端断言：告警市场区域不再断言 JP/KR 选项存在（#1823 划定的服务边界，JP/KR 只服务大盘复盘）、TickFlow 优先级帮助文案对齐 systemConfigI18n 最新描述（#2258 起区分已登记指数的独立降级链）、决策信号时间线用例改用动态 createdAt，避免固定日期随时间推移掉出 30 天窗口。
+- [修复] 测试进程环境隔离补上采集期污染防线：litellm 导入时执行的 load_dotenv() 会把开发者真实 .env 灌入 os.environ（发生在测试用例快照建立之前，per-test 还原无从兜住），conftest 现包装 dotenv 入口记录其写入的键并在每个用例结束后按键身份清除，system_config 等受本地 .env 影响的存量失败不再泄漏 STOCK_LIST / ADMIN_AUTH_ENABLED 等键给后续用例。
 
 ## [3.32.0] - 2026-09-06
 
