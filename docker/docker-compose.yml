@@ -8,12 +8,16 @@
 #   同时启动: docker-compose -f ./docker/docker-compose.yml up -d analyzer server
 
 name: daily-stock-analysis
-version: '3.8'
 
 x-common: &common
   build:
     context: ..
     dockerfile: docker/Dockerfile
+    args:
+      DSA_WEB_VERSION: ${DSA_WEB_VERSION:-V1.3.0}
+  # 镜像标签与发布 tag 同步（当前 V1.3.0），可用环境变量覆盖：
+  #   DSA_IMAGE=dsa:v1.3.0 docker compose -f ./docker/docker-compose.yml up -d --build
+  image: ${DSA_IMAGE:-dsa:v1.3.0}
   restart: unless-stopped
 
   # 环境变量（从 .env 文件加载）。不要将 ../.env 作为单文件 volume 挂载到 /app/.env，
